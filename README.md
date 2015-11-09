@@ -1,24 +1,30 @@
 hdfs-mount
 ==========
-Allows to  mount remote HDFS as a local Linux filesystem and allow arbitrary applications / shell scripts to access HDFS as normal files and directories in efficient way.
+Allows to mount remote HDFS as a local Linux filesystem and allow arbitrary applications / shell scripts to access HDFS as normal files and directories in efficient and secure way.
 
-Features
---------
-* High stability
+Features (Planned)
+------------------
 * High performance
    * directly interfacing Linux kernel for FUSE and HDFS using protocol buffers (requires no JavaVM)
-   * designed to be used in data-intensive workloads
-   * optimized for throughput-sensitive workloads (throughput is traded for latency whenever possible)
+   * designed and optimized for throughput-intensive workloads (throughput is traded for latency whenever possible)
    * full streaming and automatic read-ahead support
    * concurrent operations
-* Support for symbolic links
+   * In-memory metadata caching (very fast ls!)
+* High stability and robust failure-handling behavior
+   * automatic retries and failover, all configurable
+   * optional lazy mounting, before HDFS becomes available
 * Support for both reads and writes
-  * Support for random writes [slow, but functionally correct]
-  * Support for file truncations
-* In-memory metadata caching (very fast ls)
-* Customizable via command line options and configuration file
-* CoreOS and Docker-friendly: packagable as a statically-linked self-contained executable
+  * support for random writes [slow, but functionally correct]
+  * support for file truncations
+* CoreOS and Docker-friendly
+  * optionally packagable as a statically-linked self-contained executable
 
 Current state
 -------------
-Prototype - under active development
+"Alpha", under active development. Basic R/O scenarios and key R/O throughout optimizations are implemented and outperform existing HDFS/FUSE solutions.
+If you want to use the component - come back in few weeks
+If you want to help - contact authors
+
+Other Platforms
+---------------
+It should be relatively easy to enable this working on MacOS and FreeBSD, since all underlying dependencies are MacOS and FreeBSD-ready. Very few changes are needed to the code to get it working on those platforms, but it is currently not a priority for authors. Contact authors if you want to help.
