@@ -7,7 +7,10 @@ import (
 	"github.com/colinmarc/hdfs"
 	"github.com/colinmarc/hdfs/protocol/hadoop_hdfs"
 	"os"
+	"os/user"
+	"strconv"
 	"sync"
+	"time"
 )
 
 // Interface for accessing HDFS
@@ -21,21 +24,33 @@ type HdfsAccessor interface {
 }
 
 type hdfsAccessorImpl struct {
-	NameNodeAddress     string       // Address:port of the name node, TODO: allow specifying multiple addresses
-	MetadataClient      *hdfs.Client // HDFS client used for metadata operations
-	MetadataClientMutex sync.Mutex   // Serializing all metadata operations for simplicity (for now), TODO: allow N concurrent operations
+	Clock               Clock                    // interface to get wall clock time
+	NameNodeAddress     string                   // Address:port of the name node, TODO: allow specifying multiple addresses
+	MetadataClient      *hdfs.Client             // HDFS client used for metadata operations
+	MetadataClientMutex sync.Mutex               // Serializing all metadata operations for simplicity (for now), TODO: allow N concurrent operations
+	UserNameToUidCache  map[string]UidCacheEntry // cache for converting usernames to UIDs
+}
+
+type UidCacheEntry struct {
+	Uid     uint32    // User Id
+	Expires time.Time // Absolute time when this cache entry expires
 }
 
 var _ HdfsAccessor = (*hdfsAccessorImpl)(nil) // ensure hdfsAccessorImpl implements HdfsAccessor
 
 // Creates an instance of HdfsAccessor
-func NewHdfsAccessor(nameNodeAddress string) (HdfsAccessor, error) {
+func NewHdfsAccessor(nameNodeAddress string, clock Clock) (HdfsAccessor, error) {
 	//TODO: support deferred on-demand creation to allow successful mounting before HDFS is available
 	client, err := hdfs.New(nameNodeAddress)
 	if err != nil {
 		return nil, err
 	}
-	return &hdfsAccessorImpl{NameNodeAddress: nameNodeAddress, MetadataClient: client}, nil
+	return &hdfsAccessorImpl{
+			Clock:              clock,
+			NameNodeAddress:    nameNodeAddress,
+			MetadataClient:     client,
+			UserNameToUidCache: make(map[string]UidCacheEntry)},
+		nil
 }
 
 // Opens HDFS file for reading
@@ -67,17 +82,8 @@ func (this *hdfsAccessorImpl) ReadDir(path string) ([]Attrs, error) {
 	}
 
 	allAttrs := make([]Attrs, len(files))
-	for i, f := range files {
-		protoBufData := f.Sys().(*hadoop_hdfs.HdfsFileStatusProto)
-		mode := os.FileMode(*protoBufData.Permission.Perm)
-		if f.IsDir() {
-			mode |= os.ModeDir
-		}
-		allAttrs[i] = Attrs{
-			Inode: *protoBufData.FileId,
-			Name:  f.Name(),
-			Mode:  mode,
-			Size:  *protoBufData.Length}
+	for i, fileInfo := range files {
+		allAttrs[i] = this.AttrsFromFileInfo(fileInfo)
 	}
 	return allAttrs, nil
 }
@@ -87,13 +93,51 @@ func (this *hdfsAccessorImpl) Stat(path string) (Attrs, error) {
 	this.MetadataClientMutex.Lock()
 	defer this.MetadataClientMutex.Unlock()
 
-	st, err := this.MetadataClient.Stat(path)
+	fileInfo, err := this.MetadataClient.Stat(path)
 	if err != nil {
 		return Attrs{}, err
 	}
-	attrs := Attrs{Inode: *st.Sys().(*hadoop_hdfs.HdfsFileStatusProto).FileId, Name: st.Name(), Mode: st.Mode(), Size: uint64(st.Size())}
-	if st.IsDir() {
-		attrs.Mode |= os.ModeDir
+	return this.AttrsFromFileInfo(fileInfo), nil
+}
+
+// Converts os.FileInfo + underlying proto-buf data into Attrs structure
+func (this *hdfsAccessorImpl) AttrsFromFileInfo(fileInfo os.FileInfo) Attrs {
+	protoBufData := fileInfo.Sys().(*hadoop_hdfs.HdfsFileStatusProto)
+	mode := os.FileMode(*protoBufData.Permission.Perm)
+	if fileInfo.IsDir() {
+		mode |= os.ModeDir
 	}
-	return attrs, nil
+	return Attrs{
+		Inode: *protoBufData.FileId,
+		Name:  fileInfo.Name(),
+		Mode:  mode,
+		Size:  *protoBufData.Length,
+		Uid:   this.LookupUid(*protoBufData.Owner),
+		Gid:   0} // TODO: Group is now hardcoded to be "root", implement proper mapping
+}
+
+// Performs a cache-assisted lookup of UID by username
+func (this *hdfsAccessorImpl) LookupUid(userName string) uint32 {
+	if userName == "" {
+		return 0
+	}
+	// Note: this method is called under MetadataClientMutex, so accessing the cache dirctionary is safe
+	cacheEntry, ok := this.UserNameToUidCache[userName]
+	if ok && this.Clock.Now().Before(cacheEntry.Expires) {
+		return cacheEntry.Uid
+	}
+	print("u:" + userName + "\n")
+	u, err := user.Lookup(userName)
+	var uid64 uint64
+	if err == nil {
+		// UID is returned as string, need to parse it
+		uid64, err = strconv.ParseUint(u.Uid, 10, 32)
+	}
+	if err != nil {
+		uid64 = (1 << 31) - 1
+	}
+	this.UserNameToUidCache[userName] = UidCacheEntry{
+		Uid:     uint32(uid64),
+		Expires: this.Clock.Now().Add(5 * time.Minute)} // caching UID for 5 minutes
+	return uint32(uid64)
 }

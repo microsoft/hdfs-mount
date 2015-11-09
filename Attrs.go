@@ -13,6 +13,8 @@ type Attrs struct {
 	Name  string
 	Mode  os.FileMode
 	Size  uint64
+	Uid   uint32
+	Gid   uint32
 }
 
 // Converts Attrs datastructure into FUSE represnetation
@@ -22,6 +24,8 @@ func (this *Attrs) Attr(a *fuse.Attr) error {
 	if (a.Mode & os.ModeDir) == 0 {
 		a.Size = this.Size
 	}
+	a.Uid = this.Uid
+	a.Gid = this.Gid
 	return nil
 }
 

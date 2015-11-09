@@ -38,7 +38,7 @@ $(MOCKGEN_DIR)/mockgen: $(MOCKGEN_DIR)/mockgen.go
 clean:
 	rm -f hdfs-mount _mock_*.go
 
-_mock_%_test.go: %.go
+mock_%_test.go: %.go
 	$(MOCKGEN_DIR)/mockgen -source $< -package main > $@~
 	mv -f $@~ $@
 
@@ -46,6 +46,6 @@ test: hdfs-mount \
 	  $(GOPATH)/src/github.com/stretchr/testify/assert \
       $(GOPATH)/src/github.com/golang/mock/gomock \
       $(MOCKGEN_DIR)/mockgen \
-      _mock_HdfsAccessor_test.go \
-      _mock_HdfsReader_test.go
+      mock_HdfsAccessor_test.go \
+      mock_HdfsReader_test.go
 	go test

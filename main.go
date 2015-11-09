@@ -31,7 +31,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0))
+	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewHdfsAccessor: ", err)
 	}
