@@ -31,7 +31,10 @@ func main() {
 		os.Exit(2)
 	}
 
-	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), WallClock{})
+	retryPolicy := NewDefaultRetryPolicy(WallClock{})
+	// TODO: add command line options to customize retry polic
+
+	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), retryPolicy, WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewHdfsAccessor: ", err)
 	}

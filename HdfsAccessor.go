@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,8 +25,10 @@ type HdfsAccessor interface {
 }
 
 type hdfsAccessorImpl struct {
+	RetryPolicy         *RetryPolicy             // pointer to the retry policy
 	Clock               Clock                    // interface to get wall clock time
-	NameNodeAddress     string                   // Address:port of the name node, TODO: allow specifying multiple addresses
+	NameNodeAddresses   []string                 // array of Address:port string for the name nodes
+	CurrentNameNodeIdx  int                      // Index of the current name node in NameNodeAddresses array
 	MetadataClient      *hdfs.Client             // HDFS client used for metadata operations
 	MetadataClientMutex sync.Mutex               // Serializing all metadata operations for simplicity (for now), TODO: allow N concurrent operations
 	UserNameToUidCache  map[string]UidCacheEntry // cache for converting usernames to UIDs
@@ -39,23 +42,67 @@ type UidCacheEntry struct {
 var _ HdfsAccessor = (*hdfsAccessorImpl)(nil) // ensure hdfsAccessorImpl implements HdfsAccessor
 
 // Creates an instance of HdfsAccessor
-func NewHdfsAccessor(nameNodeAddress string, clock Clock) (HdfsAccessor, error) {
+func NewHdfsAccessor(nameNodeAddresses string, retryPolicy *RetryPolicy, clock Clock) (HdfsAccessor, error) {
+	nns := strings.Split(nameNodeAddresses, ",")
+
+	this := &hdfsAccessorImpl{
+		NameNodeAddresses:  nns,
+		CurrentNameNodeIdx: 0,
+		RetryPolicy:        retryPolicy,
+		Clock:              clock,
+		UserNameToUidCache: make(map[string]UidCacheEntry)}
+
 	//TODO: support deferred on-demand creation to allow successful mounting before HDFS is available
-	client, err := hdfs.New(nameNodeAddress)
+	client, err := this.ConnectToNameNode()
 	if err != nil {
 		return nil, err
 	}
-	return &hdfsAccessorImpl{
-			Clock:              clock,
-			NameNodeAddress:    nameNodeAddress,
-			MetadataClient:     client,
-			UserNameToUidCache: make(map[string]UidCacheEntry)},
-		nil
+	this.MetadataClient = client
+	return this, nil
+}
+
+func (this *hdfsAccessorImpl) ConnectToNameNode() (*hdfs.Client, error) {
+	op := this.RetryPolicy.StartOperation()
+	startIdx := this.CurrentNameNodeIdx
+	for {
+		// connecting to HDFS name nodes in round-robin fashion:
+		nnIdx := (startIdx + op.Attempt - 1) % len(this.NameNodeAddresses)
+		nnAddr := this.NameNodeAddresses[nnIdx]
+
+		// Performing an attempt to connect to the name node
+		client, err := hdfs.New(nnAddr)
+		if err != nil {
+			if op.ShouldRetry("connect %s: %s", nnAddr, err) {
+				continue
+			} else {
+				return nil, err
+			}
+		}
+		// connection is OK, but we need to check whether name node is operating ans expected
+		// (this also checks whether name node is Active)
+		// Performing this check, by doing Stat() for a path inside root directory
+		// Note: The file '/$' doesn't have to be present
+		// - both nil and ErrNotExists error codes indicate success of the operation
+		_, statErr := client.Stat("/$")
+
+		if pathError, ok := statErr.(*os.PathError); statErr == nil || ok && (pathError.Err == os.ErrNotExist) {
+			// Succesfully connected, memoizing the index of the name node, to speedup next connect
+			this.CurrentNameNodeIdx = nnIdx
+			return client, nil
+		} else {
+			//TODO: how to close connection ?
+			if op.ShouldRetry("healthcheck %s: %s", nnAddr, statErr) {
+				continue
+			} else {
+				return nil, statErr
+			}
+		}
+	}
 }
 
 // Opens HDFS file for reading
 func (this *hdfsAccessorImpl) OpenRead(path string) (HdfsReader, error) {
-	client, err1 := hdfs.New(this.NameNodeAddress)
+	client, err1 := this.ConnectToNameNode()
 	if err1 != nil {
 		return nil, err1
 	}
