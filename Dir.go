@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"time"
 )
 
 // Encapsulates state and operations for directory node on the HDFS file system
@@ -37,6 +38,13 @@ func (this *Dir) AbsolutePath() string {
 
 // Responds on FUSE request to get directory attributes
 func (this *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
+	if this.Parent != nil && this.FileSystem.Clock.Now().After(this.Attrs.Expires) {
+		err := this.Parent.LookupAttrs(this.Attrs.Name, &this.Attrs)
+		if err != nil {
+			return err
+		}
+
+	}
 	return this.Attrs.Attr(a)
 }
 
@@ -62,12 +70,9 @@ func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	if node := this.EntriesGet(name); node != nil {
 		return node, nil
 	}
-	attrs, err := this.FileSystem.HdfsAccessor.Stat(path.Join(this.AbsolutePath(), name))
+	var attrs Attrs
+	err := this.LookupAttrs(name, &attrs)
 	if err != nil {
-		log.Printf("Error/stat: %s %v", err.Error(), err)
-		if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
-			return nil, fuse.ENOENT
-		}
 		return nil, err
 	}
 	return this.NodeFromAttrs(attrs), nil
@@ -101,6 +106,7 @@ func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	return entries, nil
 }
 
+// Creates typed node (Dir or File) from the attributes
 func (this *Dir) NodeFromAttrs(attrs Attrs) fs.Node {
 	var node fs.Node
 	if (attrs.Mode & os.ModeDir) == 0 {
@@ -110,4 +116,20 @@ func (this *Dir) NodeFromAttrs(attrs Attrs) fs.Node {
 	}
 	this.EntriesSet(attrs.Name, node)
 	return node
+}
+
+// Performs Stat() query on the backend
+func (this *Dir) LookupAttrs(name string, attrs *Attrs) error {
+	var err error
+	*attrs, err = this.FileSystem.HdfsAccessor.Stat(path.Join(this.AbsolutePath(), name))
+	if err != nil {
+		log.Printf("Error/stat: %s %v", err.Error(), err)
+		if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
+			return fuse.ENOENT
+		}
+		return err
+	}
+	// expiration time := now + 1 minute // TODO: make configurable
+	attrs.Expires = this.FileSystem.Clock.Now().Add(time.Minute)
+	return nil
 }

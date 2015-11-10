@@ -5,16 +5,18 @@ package main
 import (
 	"bazil.org/fuse"
 	"os"
+	"time"
 )
 
 // Attributes common to the file/directory HDFS nodes
 type Attrs struct {
-	Inode uint64
-	Name  string
-	Mode  os.FileMode
-	Size  uint64
-	Uid   uint32
-	Gid   uint32
+	Inode   uint64
+	Name    string
+	Mode    os.FileMode
+	Size    uint64
+	Uid     uint32
+	Gid     uint32
+	Expires time.Time // indicates when cached attribute information expires
 }
 
 // Converts Attrs datastructure into FUSE represnetation

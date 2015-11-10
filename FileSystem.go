@@ -14,14 +14,15 @@ type FileSystem struct {
 	MountPoint   string       // Path to the mount point on a local file system
 	HdfsAccessor HdfsAccessor // Interface to access HDFS
 	Mounted      bool         // True if filesystem is mounted
+	Clock        Clock        // interface to get wall clock time
 }
 
 // Verify that *FileSystem implements necesary FUSE interfaces
 var _ fs.FS = (*FileSystem)(nil)
 
 // Creates an instance of mountable file system
-func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string) (*FileSystem, error) {
-	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false}, nil
+func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, clock Clock) (*FileSystem, error) {
+	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false, Clock: clock}, nil
 }
 
 // Mounts the filesystem

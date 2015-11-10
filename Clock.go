@@ -15,9 +15,15 @@ type Clock interface {
 
 type WallClock struct{}
 
-// Returns current time
-func (WallClock) Now() time.Time { return time.Now() }
+var _ Clock = WallClock{} // ensure WallClock implements Clock
 
+// Returns current time
+func (WallClock) Now() time.Time {
+	return time.Now()
+}
+
+// After waits for the duration to elapse and then sends the current time
+// on the returned channel.
 func (WallClock) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }

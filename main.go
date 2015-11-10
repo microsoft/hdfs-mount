@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("Error/NewHdfsAccessor: ", err)
 	}
 
-	fileSystem, err := NewFileSystem(hdfsAccessor, flag.Arg(1))
+	fileSystem, err := NewFileSystem(hdfsAccessor, flag.Arg(1), WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewFileSystem: ", err)
 	}

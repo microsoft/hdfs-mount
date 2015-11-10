@@ -27,6 +27,12 @@ func (this *File) AbsolutePath() string {
 
 // Responds to the FUSE file attribute request
 func (this *File) Attr(ctx context.Context, a *fuse.Attr) error {
+	if this.FileSystem.Clock.Now().After(this.Attrs.Expires) {
+		err := this.Parent.LookupAttrs(this.Attrs.Name, &this.Attrs)
+		if err != nil {
+			return err
+		}
+	}
 	return this.Attrs.Attr(a)
 }
 
