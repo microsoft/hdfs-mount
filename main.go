@@ -23,6 +23,8 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	lazyMount := flag.Bool("lazy", false, "Allows to mount HDFS filesystem before HDFS is available")
+
 	flag.Usage = Usage
 	flag.Parse()
 
@@ -34,7 +36,7 @@ func main() {
 	retryPolicy := NewDefaultRetryPolicy(WallClock{})
 	// TODO: add command line options to customize retry polic
 
-	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), retryPolicy, WallClock{})
+	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), retryPolicy, *lazyMount, WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewHdfsAccessor: ", err)
 	}
@@ -62,6 +64,9 @@ func main() {
 			//TODO: before doing that we need to finish deferred flushes
 			log.Print("Signal received: " + x.String())
 			fileSystem.Unmount() // this will cause Serve() call below to exit
+			// Also reseting retry policy properties to stop useless retries
+			retryPolicy.MaxAttempts = 0
+			retryPolicy.MaxDelay = 0
 		}
 	}()
 	err = fs.Serve(c, fileSystem)
