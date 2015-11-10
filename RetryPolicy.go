@@ -5,20 +5,26 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 )
 
 // Encapsulats policy and logic of handling retries
 type RetryPolicy struct {
-	Clock       Clock         // Interface to clock
-	MaxAttempts int           // Maximum allowed attempts for operations
-	TimeLimit   time.Duration // Time limit for retries on subsequent failures
+	Clock           Clock         // Interface to clock
+	MaxAttempts     int           // Maximum allowed attempts for operations
+	TimeLimit       time.Duration // Time limit for retries on subsequent failures
+	MinDelay        time.Duration // minimum delay between retries (note, first retry always happens immediatelly)
+	MaxDelay        time.Duration // maximum delay between retries
+	RandomizeDelays bool          // true to randomize delays between retires
+	ExpBackoffBase  float64       // base for the exponent function to compute delays between attempts
 }
 
 type Op struct {
-	RetryPolicy *RetryPolicy // Pointed to the shared policy data structure
-	Attempt     int          // 1-based index of current attemmpt
-	Expires     time.Time    // point in time after which no retries are allowed
+	RetryPolicy *RetryPolicy  // Pointed to the shared policy data structure
+	Attempt     int           // 1-based index of current attemmpt
+	Expires     time.Time     // point in time after which no retries are allowed
+	Delay       time.Duration // last delay (exponentially grows)
 }
 
 // Creates trivial retry policy which disallows all retries
@@ -26,12 +32,20 @@ func NewNoRetryPolicy() *RetryPolicy {
 	return &RetryPolicy{MaxAttempts: 1, Clock: WallClock{}}
 }
 
-// Creates default retry policy
+// Creates default retry policy.
+// Default retry policy is time-based
+// using randomized delay between 1sec-1min.
+// The base for the exponential backoff is set as a golden ratio
+// (delays grow approximatelly as the numbers in Fibonacci sequence)
 func NewDefaultRetryPolicy(clock Clock) *RetryPolicy {
 	return &RetryPolicy{
-		Clock:       clock,
-		MaxAttempts: 3,
-		TimeLimit:   5 * time.Minute}
+		Clock:           clock,
+		MaxAttempts:     99999999999,
+		TimeLimit:       5 * time.Minute,
+		MinDelay:        1 * time.Second,
+		MaxDelay:        1 * time.Minute,
+		RandomizeDelays: true,
+		ExpBackoffBase:  1.618}
 }
 
 // Starts a new operation (a retry context) and returns data structure to track operation retires
@@ -58,14 +72,26 @@ func (op *Op) ShouldRetry(message string, args ...interface{}) bool {
 		return false
 	}
 	// Computing delay (exponential backoff)
-	delay := time.Second //TODO: implement exponential backoff
+	if op.Attempt == 2 {
+		op.Delay = op.RetryPolicy.MinDelay
+	} else if op.Attempt > 2 {
+		op.Delay = time.Duration(float64(op.Delay) * op.RetryPolicy.ExpBackoffBase)
+		if op.Delay > op.RetryPolicy.MaxDelay {
+			op.Delay = op.RetryPolicy.MaxDelay
+		}
+	}
+
+	effectiveDelay := op.Delay
+	if op.RetryPolicy.RandomizeDelays && op.Delay > op.RetryPolicy.MinDelay {
+		effectiveDelay = op.RetryPolicy.MinDelay + time.Duration(float64(op.Delay-op.RetryPolicy.MinDelay)*rand.Float64())
+	}
 
 	// Logging information about failed attempt
-	log.Printf(fmt.Sprintf("%s -> failed attempt #%d: retrying in %s", message, op.Attempt, delay), args...)
+	log.Printf(fmt.Sprintf("%s -> failed attempt #%d: retrying in %s", message, op.Attempt, effectiveDelay), args...)
 	op.Attempt++
 
 	// Sleeping
-	<-op.RetryPolicy.Clock.After(delay)
+	<-op.RetryPolicy.Clock.After(effectiveDelay)
 
 	// Allowing to retry
 	return true
