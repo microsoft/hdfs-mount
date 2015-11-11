@@ -34,14 +34,22 @@ func main() {
 	}
 
 	retryPolicy := NewDefaultRetryPolicy(WallClock{})
-	// TODO: add command line options to customize retry polic
+	// TODO: add command line options to customize retry policy
 
-	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), retryPolicy, *lazyMount, WallClock{})
+	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewHdfsAccessor: ", err)
 	}
 
-	fileSystem, err := NewFileSystem(hdfsAccessor, flag.Arg(1), WallClock{})
+	// Wrapping with FaultTolerantHdfsAccessor
+	ftHdfsAccessor := NewFaultTolerantHdfsAccessor(hdfsAccessor, retryPolicy)
+
+	if !*lazyMount && ftHdfsAccessor.EnsureConnected() != nil {
+		log.Fatal("Can't establish connection to HDFS, mounting will NOT be performend (this can be suppressed with -lazy)")
+	}
+
+	// Creating the virtual file system
+	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewFileSystem: ", err)
 	}

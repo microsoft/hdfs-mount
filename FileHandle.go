@@ -42,7 +42,7 @@ func (this *FileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *f
 
 // Closes the handle
 func (this *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
-	log.Printf("Handle closed")
+	log.Printf("[%s] Handle closed", this.File.AbsolutePath())
 	this.Reader.Close()
 	return nil
 }

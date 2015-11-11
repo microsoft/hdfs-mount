@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/colinmarc/hdfs"
 	"github.com/colinmarc/hdfs/protocol/hadoop_hdfs"
 	"os"
@@ -21,11 +22,11 @@ type HdfsAccessor interface {
 	OpenWrite(path string) (HdfsWriter, error) // Opens HDFS file for writing
 	ReadDir(path string) ([]Attrs, error)      // Enumerates HDFS directory
 	Stat(path string) (Attrs, error)           // retrieves file/directory attributes
+	EnsureConnected() error                    // Ensures HDFS accessor is connected to the HDFS name node
 	//TODO: mkdir, remove, etc...
 }
 
 type hdfsAccessorImpl struct {
-	RetryPolicy         *RetryPolicy             // pointer to the retry policy
 	Clock               Clock                    // interface to get wall clock time
 	NameNodeAddresses   []string                 // array of Address:port string for the name nodes
 	CurrentNameNodeIdx  int                      // Index of the current name node in NameNodeAddresses array
@@ -42,29 +43,28 @@ type UidCacheEntry struct {
 var _ HdfsAccessor = (*hdfsAccessorImpl)(nil) // ensure hdfsAccessorImpl implements HdfsAccessor
 
 // Creates an instance of HdfsAccessor
-func NewHdfsAccessor(nameNodeAddresses string, retryPolicy *RetryPolicy, lazyMount bool, clock Clock) (HdfsAccessor, error) {
+func NewHdfsAccessor(nameNodeAddresses string, clock Clock) (HdfsAccessor, error) {
 	nns := strings.Split(nameNodeAddresses, ",")
 
 	this := &hdfsAccessorImpl{
 		NameNodeAddresses:  nns,
 		CurrentNameNodeIdx: 0,
-		RetryPolicy:        retryPolicy,
 		Clock:              clock,
 		UserNameToUidCache: make(map[string]UidCacheEntry)}
-
-	if !lazyMount {
-		// If --mount.lazy isn't requested, connecting to the name node right away
-		if err := this.ConnectMetadataClient(this.RetryPolicy.StartOperation()); err != nil {
-			return nil, err
-		}
-	}
-
 	return this, nil
 }
 
+// Ensures that metadata client is connected
+func (this *hdfsAccessorImpl) EnsureConnected() error {
+	if this.MetadataClient != nil {
+		return nil
+	}
+	return this.ConnectMetadataClient()
+}
+
 // Establishes connection to the name node (assigns MetadataClient field)
-func (this *hdfsAccessorImpl) ConnectMetadataClient(op *Op) error {
-	client, err := this.ConnectToNameNode(op)
+func (this *hdfsAccessorImpl) ConnectMetadataClient() error {
+	client, err := this.ConnectToNameNode()
 	if err != nil {
 		return err
 	}
@@ -73,26 +73,20 @@ func (this *hdfsAccessorImpl) ConnectMetadataClient(op *Op) error {
 }
 
 // Establishes connection to a name node in the context of some other operation
-func (this *hdfsAccessorImpl) ConnectToNameNode(op *Op) (*hdfs.Client, error) {
-	for {
-		// connecting to HDFS name node
-		nnAddr := this.NameNodeAddresses[this.CurrentNameNodeIdx]
-		client, err := this.connectToNameNodeAttempt(nnAddr)
-		if err != nil {
-			// Connection failed, updating CurrentNameNodeIdx to try different name node next time
-			this.CurrentNameNodeIdx = (this.CurrentNameNodeIdx + 1) % len(this.NameNodeAddresses)
-			if op.ShouldRetry("connect %s: %s", nnAddr, err) {
-				continue
-			} else {
-				return nil, err
-			}
-		}
-		return client, nil
+func (this *hdfsAccessorImpl) ConnectToNameNode() (*hdfs.Client, error) {
+	// connecting to HDFS name node
+	nnAddr := this.NameNodeAddresses[this.CurrentNameNodeIdx]
+	client, err := this.connectToNameNodeImpl(nnAddr)
+	if err != nil {
+		// Connection failed, updating CurrentNameNodeIdx to try different name node next time
+		this.CurrentNameNodeIdx = (this.CurrentNameNodeIdx + 1) % len(this.NameNodeAddresses)
+		return nil, errors.New(fmt.Sprintf("%s: %s", nnAddr, err.Error()))
 	}
+	return client, nil
 }
 
-// Performs a single attempt to connect to the name node
-func (this *hdfsAccessorImpl) connectToNameNodeAttempt(nnAddr string) (*hdfs.Client, error) {
+// Performs an attempt to connect to the HDFS name
+func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client, error) {
 	// Performing an attempt to connect to the name node
 	client, err := hdfs.New(nnAddr)
 	if err != nil {
@@ -116,22 +110,16 @@ func (this *hdfsAccessorImpl) connectToNameNodeAttempt(nnAddr string) (*hdfs.Cli
 
 // Opens HDFS file for reading
 func (this *hdfsAccessorImpl) OpenRead(path string) (HdfsReader, error) {
-	op := this.RetryPolicy.StartOperation()
-	for {
-		client, err1 := this.ConnectToNameNode(op)
-		if err1 != nil {
-			return nil, err1
-		}
-		reader, err2 := client.Open(path)
-		if err2 != nil {
-			if op.ShouldRetry("[%s] OpenRead: %s", path, err2) {
-				continue
-			} else {
-				return nil, err2
-			}
-		}
-		return NewHdfsReader(reader), nil
+	client, err1 := this.ConnectToNameNode()
+	if err1 != nil {
+		return nil, err1
 	}
+	reader, err2 := client.Open(path)
+	if err2 != nil {
+		//TODO: close connection
+		return nil, err2
+	}
+	return NewHdfsReader(reader), nil
 }
 
 // Opens HDFS file for writing
@@ -143,40 +131,22 @@ func (this *hdfsAccessorImpl) OpenWrite(path string) (HdfsWriter, error) {
 func (this *hdfsAccessorImpl) ReadDir(path string) ([]Attrs, error) {
 	this.MetadataClientMutex.Lock()
 	defer this.MetadataClientMutex.Unlock()
-	op := this.RetryPolicy.StartOperation()
-	for {
-		if this.MetadataClient == nil {
-			if err := this.ConnectMetadataClient(op); err != nil {
-				return nil, err
-			}
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return nil, err
 		}
-		attrs, err := this.readDirAttempt(path)
-		if err != nil {
-			if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
-				// benign error (path not found)
-				return nil, err
-			}
-			// We've got error from this client, setting to nil, so we try another one next time
-			this.MetadataClient = nil
-			// TODO: attempt to gracefully close the conenction
-			if op.ShouldRetry("[%s]:ReadDir: %s", path, err) {
-				continue
-			} else {
-				return nil, err
-			}
-		}
-		return attrs, nil
 	}
-
-}
-
-// Performs 1 attempt to enumerate HDFS directory
-func (this *hdfsAccessorImpl) readDirAttempt(path string) ([]Attrs, error) {
 	files, err := this.MetadataClient.ReadDir(path)
 	if err != nil {
+		if IsSuccessOrBenignError(err) {
+			// benign error (e.g. path not found)
+			return nil, err
+		}
+		// We've got error from this client, setting to nil, so we try another one next time
+		this.MetadataClient = nil
+		// TODO: attempt to gracefully close the conenction
 		return nil, err
 	}
-
 	allAttrs := make([]Attrs, len(files))
 	for i, fileInfo := range files {
 		allAttrs[i] = this.AttrsFromFileInfo(fileInfo)
@@ -189,32 +159,24 @@ func (this *hdfsAccessorImpl) Stat(path string) (Attrs, error) {
 	this.MetadataClientMutex.Lock()
 	defer this.MetadataClientMutex.Unlock()
 
-	op := this.RetryPolicy.StartOperation()
-	for {
-		if this.MetadataClient == nil {
-			if err := this.ConnectMetadataClient(op); err != nil {
-				return Attrs{}, err
-			}
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return Attrs{}, err
 		}
-
-		fileInfo, err := this.MetadataClient.Stat(path)
-		if err != nil {
-			if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
-				// benign error (path not found)
-				return Attrs{}, err
-			}
-
-			// We've got error from this client, setting to nil, so we try another one next time
-			this.MetadataClient = nil
-			// TODO: attempt to gracefully close the conenction
-			if op.ShouldRetry("[%s]:Stat: %s", path, err) {
-				continue
-			} else {
-				return Attrs{}, err
-			}
-		}
-		return this.AttrsFromFileInfo(fileInfo), nil
 	}
+
+	fileInfo, err := this.MetadataClient.Stat(path)
+	if err != nil {
+		if IsSuccessOrBenignError(err) {
+			// benign error (e.g. path not found)
+			return Attrs{}, err
+		}
+		// We've got error from this client, setting to nil, so we try another one next time
+		this.MetadataClient = nil
+		// TODO: attempt to gracefully close the conenction
+		return Attrs{}, err
+	}
+	return this.AttrsFromFileInfo(fileInfo), nil
 }
 
 // Converts os.FileInfo + underlying proto-buf data into Attrs structure
@@ -256,4 +218,16 @@ func (this *hdfsAccessorImpl) LookupUid(userName string) uint32 {
 		Uid:     uint32(uid64),
 		Expires: this.Clock.Now().Add(5 * time.Minute)} // caching UID for 5 minutes
 	return uint32(uid64)
+}
+
+// Returns true if err==nil or err is expected (benign) error which should be propagated directoy to the caller
+func IsSuccessOrBenignError(err error) bool {
+	if err == nil {
+		return true
+	}
+	if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
+		return true
+	} else {
+		return false
+	}
 }

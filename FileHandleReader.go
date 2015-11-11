@@ -82,7 +82,7 @@ func (this *FileHandleReader) Read(handle *FileHandle, ctx context.Context, req 
 	err := this.Buffer1.ReadFromBackend(this.HdfsReader, &this.Offset, minBytesToRead, maxBytesToRead)
 	if err != nil {
 		if err == io.EOF {
-			log.Printf("[%d] EOF", this.Offset)
+			log.Printf("[%s] EOF @%d", handle.File.AbsolutePath(), this.Offset)
 			resp.Data = []byte{}
 			return nil
 		}
