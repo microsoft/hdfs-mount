@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/colinmarc/hdfs"
 	"github.com/colinmarc/hdfs/protocol/hadoop_hdfs"
+	"io"
 	"os"
 	"os/user"
 	"strconv"
@@ -222,7 +223,7 @@ func (this *hdfsAccessorImpl) LookupUid(userName string) uint32 {
 
 // Returns true if err==nil or err is expected (benign) error which should be propagated directoy to the caller
 func IsSuccessOrBenignError(err error) bool {
-	if err == nil {
+	if err == nil || err == io.EOF {
 		return true
 	}
 	if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {

@@ -35,7 +35,7 @@ func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (HdfsReader, error)
 		result, err := this.Impl.OpenRead(path)
 		if err == nil {
 			// wrapping returned HdfsReader with FaultTolerantHdfsReader
-			return &FaultTolerantHdfsReader{Impl: result}, nil
+			return NewFaultTolerantHdfsReader(path, result, this.Impl, this.RetryPolicy), nil
 		}
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] OpenRead: %s", path, err) {
 			return nil, err
