@@ -66,7 +66,15 @@ func (this *Dir) EntriesSet(name string, node fs.Node) {
 
 // Responds on FUSE request to lookup the directory
 func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	//log.Printf("[%s]Lookup: %s", this.AbsolutePath(), name)
+	path := this.AbsolutePath()
+	if path != "/" {
+		path = path + "/"
+	}
+	path += name
+	if !this.FileSystem.IsPathAllowed(path) {
+		return nil, fuse.ENOENT
+	}
+
 	if node := this.EntriesGet(name); node != nil {
 		return node, nil
 	}
@@ -92,18 +100,27 @@ func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		return nil, err
 	}
 	entries := make([]fuse.Dirent, len(allAttrs))
-	for i, a := range allAttrs {
-		// Creating Dirent structure as required by FUSE
-		entries[i] = fuse.Dirent{
-			Inode: a.Inode,
-			Name:  a.Name,
-			Type:  a.FuseNodeType()}
-		// Speculatively pre-creating child Dir or File node with cached attributes,
-		// since it's highly likely that we will have Lookup() call for this name
-		// This is the key trick which dramatically speeds up 'ls'
-		this.NodeFromAttrs(a)
+	i := 0
+	for _, a := range allAttrs {
+		path := absolutePath
+		if path != "/" {
+			path = path + "/"
+		}
+		path += a.Name
+		if this.FileSystem.IsPathAllowed(path) {
+			// Creating Dirent structure as required by FUSE
+			entries[i] = fuse.Dirent{
+				Inode: a.Inode,
+				Name:  a.Name,
+				Type:  a.FuseNodeType()}
+			i++
+			// Speculatively pre-creating child Dir or File node with cached attributes,
+			// since it's highly likely that we will have Lookup() call for this name
+			// This is the key trick which dramatically speeds up 'ls'
+			this.NodeFromAttrs(a)
+		}
 	}
-	return entries, nil
+	return entries[:i], nil
 }
 
 // Creates typed node (Dir or File) from the attributes

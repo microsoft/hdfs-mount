@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -30,6 +31,8 @@ func main() {
 	flag.IntVar(&retryPolicy.MaxAttempts, "retryMaxAttempts", 99999999, "Maxumum retry attempts for failed operations")
 	flag.DurationVar(&retryPolicy.MinDelay, "retryMinDelay", 1*time.Second, "minimum delay between retries (note, first retry always happens immediatelly)")
 	flag.DurationVar(&retryPolicy.MaxDelay, "retryMaxDelay", 60*time.Second, "maximum delay between retries")
+	allowedPrefixesString := flag.String("allowedPrefixes", "*", "Comma-separated list of allowed path prefixes on the remote file system, "+
+		"if specified the mount point will expose access to those prefixes only")
 
 	flag.Usage = Usage
 	flag.Parse()
@@ -38,6 +41,8 @@ func main() {
 		Usage()
 		os.Exit(2)
 	}
+
+	allowedPrefixes := strings.Split(*allowedPrefixesString, ",")
 
 	retryPolicy.MaxAttempts += 1 // converting # of retry attempts to total # of attempts
 
@@ -54,7 +59,7 @@ func main() {
 	}
 
 	// Creating the virtual file system
-	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), WallClock{})
+	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewFileSystem: ", err)
 	}

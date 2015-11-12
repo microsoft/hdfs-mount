@@ -11,12 +11,12 @@ import (
 	"time"
 )
 
-// Testing whether attributes cached
+// Testing whether attributes are cached
 func TestAttributeCaching(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockClock := &MockClock{}
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
-	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", mockClock)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, mockClock)
 	root, _ := fs.Root()
 	hdfsAccessor.EXPECT().Stat("/testDir").Return(Attrs{Name: "testDir", Mode: os.ModeDir | 0757}, nil)
 	dir, err := root.(*Dir).Lookup(nil, "testDir")
@@ -48,4 +48,39 @@ func TestAttributeCaching(t *testing.T) {
 	dir1, err1 = root.(*Dir).Lookup(nil, "testDir")
 	assert.Nil(t, err1)
 	assert.Equal(t, dir, dir1)
+}
+
+// Testing whether '-allowedPrefixes' path filtering works for ReadDir
+func TestReadDirWithFiltering(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().ReadDir("/").Return([]Attrs{
+		Attrs{Name: "quz", Mode: os.ModeDir},
+		Attrs{Name: "foo", Mode: os.ModeDir},
+		Attrs{Name: "bar", Mode: os.ModeDir},
+		Attrs{Name: "foobar", Mode: os.ModeDir},
+		Attrs{Name: "baz", Mode: os.ModeDir},
+	}, nil)
+	dirents, err := root.(*Dir).ReadDirAll(nil)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(dirents))
+	assert.Equal(t, "foo", dirents[0].Name)
+	assert.Equal(t, "bar", dirents[1].Name)
+}
+
+// Testing whether '-allowedPrefixes' path filtering works for Lookup
+func TestLookupWithFiltering(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().Stat("/foo").Return(Attrs{Name: "foo", Mode: os.ModeDir}, nil)
+	_, err := root.(*Dir).Lookup(nil, "foo")
+	assert.Nil(t, err)
+	_, err = root.(*Dir).Lookup(nil, "qux")
+	assert.Equal(t, fuse.ENOENT, err) // Not found error, since it is not in the allowed prefixes
 }

@@ -8,21 +8,23 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type FileSystem struct {
-	MountPoint   string       // Path to the mount point on a local file system
-	HdfsAccessor HdfsAccessor // Interface to access HDFS
-	Mounted      bool         // True if filesystem is mounted
-	Clock        Clock        // interface to get wall clock time
+	MountPoint      string       // Path to the mount point on a local file system
+	HdfsAccessor    HdfsAccessor // Interface to access HDFS
+	AllowedPrefixes []string     // List of allowed path prefixes (only those prefixes are exposed via mountpoint)
+	Mounted         bool         // True if filesystem is mounted
+	Clock           Clock        // interface to get wall clock time
 }
 
 // Verify that *FileSystem implements necesary FUSE interfaces
 var _ fs.FS = (*FileSystem)(nil)
 
 // Creates an instance of mountable file system
-func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, clock Clock) (*FileSystem, error) {
-	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false, Clock: clock}, nil
+func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, clock Clock) (*FileSystem, error) {
+	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false, AllowedPrefixes: allowedPrefixes, Clock: clock}, nil
 }
 
 // Mounts the filesystem
@@ -57,4 +59,21 @@ func (this *FileSystem) Unmount() {
 // Returns root directory of the filesystem
 func (this *FileSystem) Root() (fs.Node, error) {
 	return &Dir{FileSystem: this, Attrs: Attrs{Inode: 1, Name: "", Mode: 0755 | os.ModeDir}}, nil
+}
+
+// Returns if given absoute path allowed by any of the prefixes
+func (this *FileSystem) IsPathAllowed(path string) bool {
+	if path == "/" {
+		return true
+	}
+	for _, prefix := range this.AllowedPrefixes {
+		if prefix == "*" {
+			return true
+		}
+		p := "/" + prefix
+		if p == path || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
 }
