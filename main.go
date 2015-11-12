@@ -23,12 +23,13 @@ var Usage = func() {
 func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	retryPolicy := NewDefaultRetryPolicy(WallClock{})
 
 	lazyMount := flag.Bool("lazy", false, "Allows to mount HDFS filesystem before HDFS is available")
-	retryTimeLimit := flag.Duration("retryTimeLimit", 5*time.Minute, "time limit for all retry attempts for failed operations")
-	retryMaxAttempts := flag.Uint("retryMaxAttempts", 99999999, "Maxumum retry attempts for failed operations")
-	retryMinDelay := flag.Duration("retryMinDelay", 1*time.Second, "minimum delay between retries (note, first retry always happens immediatelly)")
-	retryMaxDelay := flag.Duration("retryMaxDelay", 60*time.Second, "maximum delay between retries")
+	flag.DurationVar(&retryPolicy.TimeLimit, "retryTimeLimit", 5*time.Minute, "time limit for all retry attempts for failed operations")
+	flag.IntVar(&retryPolicy.MaxAttempts, "retryMaxAttempts", 99999999, "Maxumum retry attempts for failed operations")
+	flag.DurationVar(&retryPolicy.MinDelay, "retryMinDelay", 1*time.Second, "minimum delay between retries (note, first retry always happens immediatelly)")
+	flag.DurationVar(&retryPolicy.MaxDelay, "retryMaxDelay", 60*time.Second, "maximum delay between retries")
 
 	flag.Usage = Usage
 	flag.Parse()
@@ -38,11 +39,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	retryPolicy := NewDefaultRetryPolicy(WallClock{})
-	retryPolicy.TimeLimit = *retryTimeLimit
-	retryPolicy.MaxAttempts = int(*retryMaxAttempts) + 1 // converting # of retry attempts to total # of attempts
-	retryPolicy.MinDelay = *retryMinDelay
-	retryPolicy.MaxDelay = *retryMaxDelay
+	retryPolicy.MaxAttempts += 1 // converting # of retry attempts to total # of attempts
 
 	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), WallClock{})
 	if err != nil {
