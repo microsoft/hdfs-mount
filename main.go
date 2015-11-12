@@ -66,6 +66,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Print("Mounted successfully")
 
 	defer func() {
 		fileSystem.Unmount()
