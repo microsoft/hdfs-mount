@@ -2,6 +2,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 package main
 
+import (
+	"os"
+)
+
 // Adds automatic retry capability to HdfsAccessor with respect to RetryPolicy
 type FaultTolerantHdfsAccessor struct {
 	Impl        HdfsAccessor
@@ -76,6 +80,17 @@ func (this *FaultTolerantHdfsAccessor) Stat(path string) (Attrs, error) {
 		result, err := this.Impl.Stat(path)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Stat: %s", path, err) {
 			return result, err
+		}
+	}
+}
+
+// Creates a directory
+func (this *FaultTolerantHdfsAccessor) Mkdir(path string, mode os.FileMode) error {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		err := this.Impl.Mkdir(path, mode)
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Mkdir %s: %s", path, mode, err) {
+			return err
 		}
 	}
 }

@@ -23,6 +23,7 @@ type HdfsAccessor interface {
 	OpenWrite(path string) (HdfsWriter, error) // Opens HDFS file for writing
 	ReadDir(path string) ([]Attrs, error)      // Enumerates HDFS directory
 	Stat(path string) (Attrs, error)           // retrieves file/directory attributes
+	Mkdir(path string, mode os.FileMode) error // Creates a directory
 	EnsureConnected() error                    // Ensures HDFS accessor is connected to the HDFS name node
 	//TODO: mkdir, remove, etc...
 }
@@ -231,4 +232,16 @@ func IsSuccessOrBenignError(err error) bool {
 	} else {
 		return false
 	}
+}
+
+// Creates a directory
+func (this *hdfsAccessorImpl) Mkdir(path string, mode os.FileMode) error {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return err
+		}
+	}
+	return this.MetadataClient.Mkdir(path, mode)
 }

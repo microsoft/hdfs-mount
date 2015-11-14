@@ -84,3 +84,16 @@ func TestLookupWithFiltering(t *testing.T) {
 	_, err = root.(*Dir).Lookup(nil, "qux")
 	assert.Equal(t, fuse.ENOENT, err) // Not found error, since it is not in the allowed prefixes
 }
+
+// Testing Mkdir
+func TestMkdir(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().Mkdir("/foo", os.FileMode(0757)|os.ModeDir).Return(nil)
+	node, err := root.(*Dir).Mkdir(nil, &fuse.MkdirRequest{Name: "foo", Mode: os.FileMode(0757) | os.ModeDir})
+	assert.Nil(t, err)
+	assert.Equal(t, "foo", node.(*Dir).Attrs.Name)
+}

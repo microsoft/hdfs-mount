@@ -26,14 +26,24 @@ type Dir struct {
 var _ fs.Node = (*Dir)(nil)
 var _ fs.HandleReadDirAller = (*Dir)(nil)
 var _ fs.NodeStringLookuper = (*Dir)(nil)
+var _ fs.NodeMkdirer = (*Dir)(nil)
 
-// Retunds absolute path of the dir in HDFS namespace
+// Returns absolute path of the dir in HDFS namespace
 func (this *Dir) AbsolutePath() string {
 	if this.Parent == nil {
 		return "/"
 	} else {
 		return path.Join(this.Parent.AbsolutePath(), this.Attrs.Name)
 	}
+}
+
+// Returns absolute path of the child item of this directory
+func (this *Dir) AbsolutePathForChild(name string) string {
+	path := this.AbsolutePath()
+	if path != "/" {
+		path = path + "/"
+	}
+	return path + name
 }
 
 // Responds on FUSE request to get directory attributes
@@ -61,17 +71,17 @@ func (this *Dir) EntriesGet(name string) fs.Node {
 func (this *Dir) EntriesSet(name string, node fs.Node) {
 	this.EntriesMutex.Lock()
 	defer this.EntriesMutex.Unlock()
+
+	if this.Entries == nil {
+		this.Entries = make(map[string]fs.Node)
+	}
+
 	this.Entries[name] = node
 }
 
 // Responds on FUSE request to lookup the directory
 func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	path := this.AbsolutePath()
-	if path != "/" {
-		path = path + "/"
-	}
-	path += name
-	if !this.FileSystem.IsPathAllowed(path) {
+	if !this.FileSystem.IsPathAllowed(this.AbsolutePathForChild(name)) {
 		return nil, fuse.ENOENT
 	}
 
@@ -88,9 +98,6 @@ func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 // Responds on FUSE request to read directory
 func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	if this.Entries == nil {
-		this.Entries = make(map[string]fs.Node)
-	}
 	absolutePath := this.AbsolutePath()
 	log.Printf("[%s]ReadDirAll", absolutePath)
 
@@ -102,12 +109,7 @@ func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	entries := make([]fuse.Dirent, len(allAttrs))
 	i := 0
 	for _, a := range allAttrs {
-		path := absolutePath
-		if path != "/" {
-			path = path + "/"
-		}
-		path += a.Name
-		if this.FileSystem.IsPathAllowed(path) {
+		if this.FileSystem.IsPathAllowed(this.AbsolutePathForChild(a.Name)) {
 			// Creating Dirent structure as required by FUSE
 			entries[i] = fuse.Dirent{
 				Inode: a.Inode,
@@ -149,4 +151,12 @@ func (this *Dir) LookupAttrs(name string, attrs *Attrs) error {
 	// expiration time := now + 1 minute // TODO: make configurable
 	attrs.Expires = this.FileSystem.Clock.Now().Add(time.Minute)
 	return nil
+}
+
+func (this *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
+	err := this.FileSystem.HdfsAccessor.Mkdir(this.AbsolutePathForChild(req.Name), req.Mode)
+	if err != nil {
+		return nil, err
+	}
+	return this.NodeFromAttrs(Attrs{Name: req.Name, Mode: req.Mode | os.ModeDir}), nil
 }

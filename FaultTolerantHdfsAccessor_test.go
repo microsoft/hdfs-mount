@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 	"time"
 )
@@ -31,6 +32,17 @@ func TestStatWithRetries(t *testing.T) {
 	attrs, err := ftHdfsAccessor.Stat("/test/file")
 	assert.Nil(t, err)
 	assert.Equal(t, "file", attrs.Name)
+}
+
+// Testing retry logic for Mkdir()
+func TestMkdirWithRetries(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	ftHdfsAccessor := NewFaultTolerantHdfsAccessor(hdfsAccessor, atMost2Attempts())
+	hdfsAccessor.EXPECT().Mkdir("/test/dir", os.FileMode(0757)).Return(errors.New("Injected failure"))
+	hdfsAccessor.EXPECT().Mkdir("/test/dir", os.FileMode(0757)).Return(nil)
+	err := ftHdfsAccessor.Mkdir("/test/dir", os.FileMode(0757))
+	assert.Nil(t, err)
 }
 
 // Testing retry logic for ReadDir()
