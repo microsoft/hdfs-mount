@@ -28,11 +28,12 @@ func TestSmallFileSequentialRead(t *testing.T) {
 	hdfsReader := NewMockHdfsReader(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
-	hdfsReader.whenReadReturn([]byte("Hello"), nil)
-	handle.readAndVerify(t, 0, 1024, []byte("Hello"))
+	hdfsReader.whenReadReturn([]byte("Hel"), nil)
+	hdfsReader.whenReadReturn([]byte("lo"), nil)
+	handle.readAndVerify(t, 0, 5, []byte("Hello"))
 
 	hdfsReader.whenReadReturn([]byte("World!"), nil)
-	handle.readAndVerify(t, 5, 1024, []byte("World!"))
+	handle.readAndVerify(t, 5, 6, []byte("World!"))
 
 	hdfsReader.whenReadReturn([]byte{}, io.EOF)
 	handle.readAndVerify(t, 11, 1024, []byte{})
@@ -49,11 +50,11 @@ func TestReoderedReadsDontCauseSeek(t *testing.T) {
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.whenReadReturn([]byte("He"), nil)
-	handle.readAndVerify(t, 0, 1024, []byte("He"))
+	handle.readAndVerify(t, 0, 2, []byte("He"))
 
 	hdfsReader.whenReadReturn([]byte("ll"), nil)
 	hdfsReader.whenReadReturn([]byte("oWorld!"), nil)
-	handle.readAndVerify(t, 8, 1024, []byte("ld!"))
+	handle.readAndVerify(t, 8, 3, []byte("ld!"))
 	handle.readAndVerify(t, 2, 6, []byte("lloWor"))
 
 	hdfsReader.EXPECT().Close().Return(nil)
@@ -68,13 +69,14 @@ func TestSeekAndRead(t *testing.T) {
 
 	hdfsReader.expectSeek(1000000)
 	hdfsReader.whenReadReturn([]byte("foo"), nil)
-	handle.readAndVerify(t, 1000000, 1024, []byte("foo"))
+	handle.readAndVerify(t, 1000000, 3, []byte("foo"))
 	hdfsReader.whenReadReturn([]byte("bar"), nil)
-	handle.readAndVerify(t, 1000003, 1024, []byte("bar"))
+	handle.readAndVerify(t, 1000003, 3, []byte("bar"))
 
 	hdfsReader.expectSeek(2000000)
 	hdfsReader.whenReadReturn([]byte("qux"), nil)
-	handle.readAndVerify(t, 2000000, 1024, []byte("qux"))
+	hdfsReader.whenReadReturn([]byte("baz"), nil)
+	handle.readAndVerify(t, 2000000, 6, []byte("quxbaz"))
 
 	hdfsReader.EXPECT().Close().Return(nil)
 	handle.Release(nil, nil)
@@ -107,17 +109,19 @@ func RandomAccess(t *testing.T, fileSize int64, maxRead int) {
 		size := r.Intn(maxRead) + 1
 		// Computing maximum expected number of bytes which can be returned
 		expectedMaxBytesRead := size
-		if int64(expectedMaxBytesRead) > fileSize-offset {
-			expectedMaxBytesRead = int(fileSize - offset)
+		expectedMinBytesRead := size
+		if int64(expectedMinBytesRead) > fileSize-offset {
+			expectedMinBytesRead = int(fileSize - offset)
 		}
 
-		// Executing read request
-		resp := fuse.ReadResponse{}
+		// Executing read requestnn
+		resp := fuse.ReadResponse{Data: make([]byte, 0, size)}
 		err := handle.Read(nil, &fuse.ReadRequest{Offset: offset, Size: size}, &resp)
 		assert.Nil(t, err)
 		assert.NotNil(t, resp.Data)
 		actualBytesRead := len(resp.Data)
 		assert.True(t, actualBytesRead <= expectedMaxBytesRead)
+		assert.True(t, actualBytesRead >= expectedMinBytesRead)
 		if expectedMaxBytesRead > 0 {
 			assert.True(t, actualBytesRead != 0)
 		}
@@ -163,7 +167,7 @@ func (hdfsReader *MockHdfsReader) expectSeek(pos int64) {
 
 // issue a Read() request to a handle and check returned data
 func (handle *FileHandle) readAndVerify(t *testing.T, offset int64, size int, data []byte) {
-	resp := fuse.ReadResponse{}
+	resp := fuse.ReadResponse{Data: make([]byte, 0, size)}
 	err := handle.Read(nil, &fuse.ReadRequest{Offset: offset, Size: size}, &resp)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp.Data)

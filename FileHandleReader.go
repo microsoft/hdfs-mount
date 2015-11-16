@@ -37,15 +37,40 @@ func (this *FileHandleReader) Open(handle *FileHandle) error {
 	return nil
 }
 
+// Responds on FUSE Read request. Note: If FUSE requested to read N bytes it expects exactly N, unless EOF
+func (this *FileHandleReader) Read(handle *FileHandle, ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
+	totalRead := 0
+	buf := resp.Data[0:req.Size]
+	fileOffset := req.Offset
+	var nr int
+	var err error
+	for len(buf) > 0 {
+		nr, err = this.ReadPartial(handle, fileOffset, buf)
+		if err != nil {
+			break
+		}
+		totalRead += nr
+		fileOffset += int64(nr)
+		buf = buf[nr:]
+	}
+	resp.Data = resp.Data[0:totalRead]
+	if err == io.EOF {
+		// EOF isn't a error, reporting successful read to FUSE
+		return nil
+	} else {
+		return err
+	}
+}
+
 var BLOCKSIZE int = 65536
 
-// Responds on FUSE Read request
-func (this *FileHandleReader) Read(handle *FileHandle, ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	//log.Printf("[%d] Read: offset=%d, size=%d", this.Offset, req.Offset, req.Size)
+// Reads chunk of data (satisfies part of FUSE read request)
+func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, buf []byte) (int, error) {
 	// First checking whether we can satisfy request from buffered file fragments
-	if this.Buffer1.ReadFromBuffer(req, resp) || this.Buffer2.ReadFromBuffer(req, resp) {
+	var nr int
+	if this.Buffer1.ReadFromBuffer(fileOffset, buf, &nr) || this.Buffer2.ReadFromBuffer(fileOffset, buf, &nr) {
 		this.CacheHits++
-		return nil
+		return nr, nil
 	}
 
 	// None of the buffers has the data to satisfy the request, we're going to read more data from backend into Buffer1
@@ -53,29 +78,29 @@ func (this *FileHandleReader) Read(handle *FileHandle, ctx context.Context, req 
 	// Before doing that, swapping buffers to keep MRU/LRU invariant
 	this.Buffer2, this.Buffer1 = this.Buffer1, this.Buffer2
 
-	maxBytesToRead := req.Size
+	maxBytesToRead := len(buf)
 	minBytesToRead := 1
 
-	if req.Offset != this.Offset {
+	if fileOffset != this.Offset {
 		// We're reading not from the offset expected by the backend stream
 		// we need to decide whether we do Seek(), or read the skipped data (refered as "hole" below)
-		if req.Offset > this.Offset && req.Offset-this.Offset <= int64(BLOCKSIZE*2) {
-			holeSize := int(req.Offset - this.Offset)
+		if fileOffset > this.Offset && fileOffset-this.Offset <= int64(BLOCKSIZE*2) {
+			holeSize := int(fileOffset - this.Offset)
 			this.Holes++
 			maxBytesToRead += holeSize    // we're going to read the "hole"
 			minBytesToRead = holeSize + 1 // we need to read at least one byte starting from requested offset
 		} else {
 			this.Seeks++
-			err := this.HdfsReader.Seek(req.Offset)
+			err := this.HdfsReader.Seek(fileOffset)
 			if err != nil {
-				log.Printf("[%d] Seek error to %d: %s", req.Offset, err.Error())
-				return err
+				log.Printf("[%d] Seek error to %d: %s", fileOffset, err.Error())
+				return 0, err
 			}
-			this.Offset = req.Offset
+			this.Offset = fileOffset
 		}
 	}
 
-	// Ceiing to the nearest BLOCKSIZE
+	// Ceiling to the nearest BLOCKSIZE
 	maxBytesToRead = (maxBytesToRead + BLOCKSIZE - 1) / BLOCKSIZE * BLOCKSIZE
 
 	// Reading from backend into Buffer1
@@ -83,21 +108,23 @@ func (this *FileHandleReader) Read(handle *FileHandle, ctx context.Context, req 
 	if err != nil {
 		if err == io.EOF {
 			log.Printf("[%s] EOF @%d", handle.File.AbsolutePath(), this.Offset)
-			resp.Data = []byte{}
-			return nil
+			return 0, err
 		}
-		return err
+		return 0, err
 	}
 	// Now Buffer1 has the data to satisfy request
-	if !this.Buffer1.ReadFromBuffer(req, resp) {
-		return errors.New("INTERNAL ERROR: FileFragment invariant")
+	if !this.Buffer1.ReadFromBuffer(fileOffset, buf, &nr) {
+		return 0, errors.New("INTERNAL ERROR: FileFragment invariant")
 	}
-	return nil
+	return nr, nil
 }
 
 // Closes the reader
 func (this *FileHandleReader) Close() error {
-	log.Printf("Handle stats: holes: %d, cache hits: %d, hard seeks: %d", this.Holes, this.CacheHits, this.Seeks)
-	this.HdfsReader.Close()
+	if this.HdfsReader != nil {
+		log.Printf("Handle read stats: holes: %d, cache hits: %d, hard seeks: %d", this.Holes, this.CacheHits, this.Seeks)
+		this.HdfsReader.Close()
+		this.HdfsReader = nil
+	}
 	return nil
 }
