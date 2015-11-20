@@ -16,12 +16,14 @@ Features (Planned)
 * Support for both reads and writes
   * support for random writes [slow, but functionally correct]
   * support for file truncations
+* Optionally expands ZIP archives with extracting content on demand
+  * this provides an effective solution to "millions of small files on HDFS" problem
 * CoreOS and Docker-friendly
   * optionally packagable as a statically-linked self-contained executable
 
 Current state
 -------------
-"Alpha", under active development. Basic R/O scenarios and key R/O throughout optimizations are implemented and outperform existing HDFS/FUSE solutions.
+"Alpha", under active development. Basic R/O scenarios, key R/O throughout optimizations and ZIP support are implemented and outperform existing HDFS/FUSE solutions.
 If you want to use the component - come back in few weeks
 If you want to help - contact authors
 

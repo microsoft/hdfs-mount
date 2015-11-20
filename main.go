@@ -33,6 +33,7 @@ func main() {
 	flag.DurationVar(&retryPolicy.MaxDelay, "retryMaxDelay", 60*time.Second, "maximum delay between retries")
 	allowedPrefixesString := flag.String("allowedPrefixes", "*", "Comma-separated list of allowed path prefixes on the remote file system, "+
 		"if specified the mount point will expose access to those prefixes only")
+	expandZips := flag.Bool("expandZips", false, "Enables automatic expansion of ZIP archives")
 
 	flag.Usage = Usage
 	flag.Parse()
@@ -59,7 +60,7 @@ func main() {
 	}
 
 	// Creating the virtual file system
-	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, WallClock{})
+	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, *expandZips, WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewFileSystem: ", err)
 	}

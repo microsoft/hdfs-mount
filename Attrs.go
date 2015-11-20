@@ -16,6 +16,9 @@ type Attrs struct {
 	Size    uint64
 	Uid     uint32
 	Gid     uint32
+	Mtime   time.Time
+	Ctime   time.Time
+	Crtime  time.Time
 	Expires time.Time // indicates when cached attribute information expires
 }
 
@@ -28,6 +31,9 @@ func (this *Attrs) Attr(a *fuse.Attr) error {
 	}
 	a.Uid = this.Uid
 	a.Gid = this.Gid
+	a.Mtime = this.Mtime
+	a.Ctime = this.Ctime
+	a.Crtime = this.Crtime
 	return nil
 }
 

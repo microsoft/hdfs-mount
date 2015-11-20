@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -88,6 +89,21 @@ func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	if node := this.EntriesGet(name); node != nil {
 		return node, nil
 	}
+
+	if this.FileSystem.ExpandZips && strings.HasSuffix(name, ".zip@") {
+		var attrs Attrs
+		// looking at file attributes
+		zipFileName := name[:len(name)-1]
+		err := this.LookupAttrs(zipFileName, &attrs)
+		if err == nil && !attrs.Mode.IsDir() {
+			attrs.Mode |= os.ModeDir | 0111 // TODO: set x only if r is set
+			attrs.Name = name
+			attrs.Inode = 0 // let underlying FUSE layer to assign inodes automatically
+			zipFileName := this.FileSystem.MountPoint + this.AbsolutePathForChild(zipFileName)
+			return NewZipRootDir(this.FileSystem, zipFileName, attrs), nil
+		}
+	}
+
 	var attrs Attrs
 	err := this.LookupAttrs(name, &attrs)
 	if err != nil {
@@ -106,23 +122,31 @@ func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		log.Print("Error/ls: ", err)
 		return nil, err
 	}
-	entries := make([]fuse.Dirent, len(allAttrs))
-	i := 0
+	entries := make([]fuse.Dirent, 0, len(allAttrs))
 	for _, a := range allAttrs {
 		if this.FileSystem.IsPathAllowed(this.AbsolutePathForChild(a.Name)) {
 			// Creating Dirent structure as required by FUSE
-			entries[i] = fuse.Dirent{
+			entries = append(entries, fuse.Dirent{
 				Inode: a.Inode,
 				Name:  a.Name,
-				Type:  a.FuseNodeType()}
-			i++
+				Type:  a.FuseNodeType()})
 			// Speculatively pre-creating child Dir or File node with cached attributes,
 			// since it's highly likely that we will have Lookup() call for this name
 			// This is the key trick which dramatically speeds up 'ls'
 			this.NodeFromAttrs(a)
+
+			if this.FileSystem.ExpandZips {
+				// Creating a virtual directory next to each zip file
+				// (appending '@' to the zip file name)
+				if !a.Mode.IsDir() && strings.HasSuffix(a.Name, ".zip") {
+					entries = append(entries, fuse.Dirent{
+						Name: a.Name + "@",
+						Type: fuse.DT_Dir})
+				}
+			}
 		}
 	}
-	return entries[:i], nil
+	return entries, nil
 }
 
 // Creates typed node (Dir or File) from the attributes

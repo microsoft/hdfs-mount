@@ -5,26 +5,32 @@ package main
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 type FileSystem struct {
 	MountPoint      string       // Path to the mount point on a local file system
 	HdfsAccessor    HdfsAccessor // Interface to access HDFS
 	AllowedPrefixes []string     // List of allowed path prefixes (only those prefixes are exposed via mountpoint)
+	ExpandZips      bool         // Indicates whether ZIP expansion feature is enabled
 	Mounted         bool         // True if filesystem is mounted
 	Clock           Clock        // interface to get wall clock time
+
+	closeOnUnmount     []io.Closer // list of opened files (zip archives) to be closed on unmount
+	closeOnUnmountLock sync.Mutex  // mutex to protet closeOnUnmount
 }
 
 // Verify that *FileSystem implements necesary FUSE interfaces
 var _ fs.FS = (*FileSystem)(nil)
 
 // Creates an instance of mountable file system
-func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, clock Clock) (*FileSystem, error) {
-	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false, AllowedPrefixes: allowedPrefixes, Clock: clock}, nil
+func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, expandZips bool, clock Clock) (*FileSystem, error) {
+	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false, AllowedPrefixes: allowedPrefixes, ExpandZips: expandZips, Clock: clock}, nil
 }
 
 // Mounts the filesystem
@@ -34,6 +40,7 @@ func (this *FileSystem) Mount() (*fuse.Conn, error) {
 		fuse.FSName("hdfs"),
 		fuse.Subtype("hdfs"),
 		fuse.VolumeName("HDFS filesystem"),
+		fuse.AllowOther(),
 		fuse.MaxReadahead(1024*64)) //TODO: make configurable
 	if err != nil {
 		return nil, err
@@ -51,6 +58,14 @@ func (this *FileSystem) Unmount() {
 	log.Print("Unmounting...")
 	cmd := exec.Command("fusermount", "-zu", this.MountPoint)
 	err := cmd.Run()
+
+	// Closing all the files
+	this.closeOnUnmountLock.Lock()
+	defer this.closeOnUnmountLock.Unlock()
+	for _, f := range this.closeOnUnmount {
+		f.Close()
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,4 +91,11 @@ func (this *FileSystem) IsPathAllowed(path string) bool {
 		}
 	}
 	return false
+}
+
+// Register a file to be closed on Unmount()
+func (this *FileSystem) CloseOnUnmount(file io.Closer) {
+	this.closeOnUnmountLock.Lock()
+	defer this.closeOnUnmountLock.Unlock()
+	this.closeOnUnmount = append(this.closeOnUnmount, file)
 }
