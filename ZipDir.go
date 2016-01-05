@@ -3,9 +3,9 @@
 package main
 
 import (
-	"archive/zip"
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"golang.org/src/archive/zip"
 	"golang.org/x/net/context"
 	"log"
 	"strings"

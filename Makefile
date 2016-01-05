@@ -5,7 +5,7 @@ export GOPATH=$(PWD)/_gopath
 
 all: hdfs-mount 
 
-hdfs-mount: *.go $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context
+hdfs-mount: *.go $(GOPATH)/src/golang.org/src/archive/zip/.patched $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context
 	go build
 
 $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
@@ -26,6 +26,15 @@ $(GOPATH)/src/github.com/stretchr/testify/assert:
 $(GOPATH)/src/github.com/golang/mock/gomock:
 	go get github.com/golang/mock/gomock
 
+# Patching archive/zip implementation for proper handling of zip64 archives
+$(GOPATH)/src/golang.org/src/archive/zip:
+	mkdir -p $(GOPATH)/src/golang.org/src/archive
+	cp -r $(shell dirname `which go`)/../src/archive/zip $@
+
+$(GOPATH)/src/golang.org/src/archive/zip/.patched: $(GOPATH)/src/golang.org/src/archive/zip misc/zip64-bugfix.patch
+	cd $(GOPATH)/src/golang.org/src &&	patch -p1 < $(PWD)/misc/zip64-bugfix.patch
+	touch $(GOPATH)/src/golang.org/src/archive/zip/.patched
+
 MOCKGEN_DIR=$(GOPATH)/src/github.com/golang/mock/mockgen
 
 $(MOCKGEN_DIR)/mockgen.go:
@@ -34,6 +43,7 @@ $(MOCKGEN_DIR)/mockgen.go:
 $(MOCKGEN_DIR)/mockgen: $(MOCKGEN_DIR)/mockgen.go
 	cd $(MOCKGEN_DIR) && go build
 	ls -la $(MOCKGEN_DIR)/mockgen
+
 
 clean:
 	rm -f hdfs-mount _mock_*.go

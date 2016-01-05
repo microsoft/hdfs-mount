@@ -1,0 +1,19 @@
+*** orig/archive/zip/reader.go	2016-01-05 08:47:12.260692681 -0800
+--- zip64-bugfix/archive/zip/reader.go	2016-01-05 09:01:23.368717337 -0800
+@@ -273,13 +273,13 @@
+ 			if tag == zip64ExtraId {
+ 				// update directory values from the zip64 extra block
+ 				eb := readBuf(b[:size])
+-				if len(eb) >= 8 {
++				if f.UncompressedSize == 0xFFFFFFFF && len(eb) >= 8 {
+ 					f.UncompressedSize64 = eb.uint64()
+ 				}
+-				if len(eb) >= 8 {
++				if f.CompressedSize == 0xFFFFFFFF && len(eb) >= 8 {
+ 					f.CompressedSize64 = eb.uint64()
+ 				}
+-				if len(eb) >= 8 {
++				if f.headerOffset == 0xFFFFFFFF && len(eb) >= 8 {
+ 					f.headerOffset = int64(eb.uint64())
+ 				}
+ 			}
