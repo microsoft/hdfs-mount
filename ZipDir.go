@@ -100,8 +100,9 @@ func (this *ZipDir) ReadArchive() error {
 					// Current path component is the last component of the path:
 					// Creating ZipFile
 					dir.Files[name] = &ZipFile{
-						zipFile: zipFile,
-						Attrs:   attrs}
+						zipFile:    zipFile,
+						Attrs:      attrs,
+						FileSystem: this.FileSystem}
 				} else {
 					// Current path component is a directory, which we haven't previously observed
 					// Creating ZipDir

@@ -39,6 +39,7 @@ func (this *File) Attr(ctx context.Context, a *fuse.Attr) error {
 // Responds to the FUSE file open request (creates new file handle)
 func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	log.Printf("[%s] Opened", this.AbsolutePath())
+	this.FileSystem.OnFileOpened()
 	var err error
 	handle, err := NewFileHandle(this)
 	return handle, err

@@ -11,8 +11,9 @@ import (
 
 // Encapsulates state and operations for a virtual file inside zip archive on HDFS file system
 type ZipFile struct {
-	Attrs   Attrs
-	zipFile *zip.File
+	Attrs      Attrs
+	zipFile    *zip.File
+	FileSystem *FileSystem
 }
 
 // Verify that *Dir implements necesary FUSE interfaces
@@ -26,6 +27,7 @@ func (this *ZipFile) Attr(ctx context.Context, fuseAttr *fuse.Attr) error {
 
 // Responds on FUSE Open request for a file inside zip archive
 func (this *ZipFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
+	this.FileSystem.OnFileOpened()
 	contentStream, err := this.zipFile.Open()
 	if err != nil {
 		return nil, err

@@ -9,8 +9,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 type FileSystem struct {
@@ -23,6 +25,7 @@ type FileSystem struct {
 
 	closeOnUnmount     []io.Closer // list of opened files (zip archives) to be closed on unmount
 	closeOnUnmountLock sync.Mutex  // mutex to protet closeOnUnmount
+	openFileCounter    uint64      // running counter for all opened files
 }
 
 // Verify that *FileSystem implements necesary FUSE interfaces
@@ -98,4 +101,15 @@ func (this *FileSystem) CloseOnUnmount(file io.Closer) {
 	this.closeOnUnmountLock.Lock()
 	defer this.closeOnUnmountLock.Unlock()
 	this.closeOnUnmount = append(this.closeOnUnmount, file)
+}
+
+// Called when a file is opened
+func (this *FileSystem) OnFileOpened() {
+	if atomic.AddUint64(&this.openFileCounter, 1)%100 == 0 {
+		// HACK: This is a temporary workaround for an issue in hdfs client library
+		// which relies on golang GC to cleanup TCP connections
+		// As a temporary workaround - forcing GC on every 100th open of a file
+		log.Printf("Triggering GC")
+		runtime.GC()
+	}
 }

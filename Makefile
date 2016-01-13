@@ -48,7 +48,7 @@ $(MOCKGEN_DIR)/mockgen: $(MOCKGEN_DIR)/mockgen.go
 clean:
 	rm -f hdfs-mount _mock_*.go
 
-mock_%_test.go: %.go
+mock_%_test.go: %.go | $(MOCKGEN_DIR)/mockgen
 	$(MOCKGEN_DIR)/mockgen -source $< -package main > $@~
 	mv -f $@~ $@
 

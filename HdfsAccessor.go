@@ -8,6 +8,7 @@ import (
 	"github.com/colinmarc/hdfs"
 	"github.com/colinmarc/hdfs/protocol/hadoop_hdfs"
 	"io"
+	"log"
 	"os"
 	"os/user"
 	"strconv"
@@ -84,6 +85,7 @@ func (this *hdfsAccessorImpl) ConnectToNameNode() (*hdfs.Client, error) {
 		this.CurrentNameNodeIdx = (this.CurrentNameNodeIdx + 1) % len(this.NameNodeAddresses)
 		return nil, errors.New(fmt.Sprintf("%s: %s", nnAddr, err.Error()))
 	}
+	log.Printf("Connected to name node %s", nnAddr)
 	return client, nil
 }
 
