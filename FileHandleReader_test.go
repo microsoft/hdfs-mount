@@ -176,14 +176,16 @@ func (handle *FileHandle) readAndVerify(t *testing.T, offset int64, size int, da
 }
 
 type PseudoRandomHdfsReader struct {
-	Rand     *rand.Rand
-	FileSize int64
-	position int64
-	IsClosed bool
+	Rand        *rand.Rand
+	FileSize    int64
+	position    int64
+	IsClosed    bool
+	ReaderStats *ReaderStats
 }
 
 func (this *PseudoRandomHdfsReader) Seek(pos int64) error {
 	this.position = pos
+	this.ReaderStats.IncrementSeek()
 	return nil
 }
 
@@ -192,6 +194,7 @@ func (this *PseudoRandomHdfsReader) Position() (int64, error) {
 }
 
 func (this *PseudoRandomHdfsReader) Read(buf []byte) (int, error) {
+	this.ReaderStats.IncrementRead()
 	if this.position >= this.FileSize {
 		return 0, io.EOF
 	}
