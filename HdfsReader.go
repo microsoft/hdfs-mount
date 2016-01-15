@@ -11,6 +11,7 @@ import (
 // Concurrency: not thread safe: at most on request at a time
 type HdfsReader interface {
 	Seek(pos int64) error            // Seeks to a given position
+	Position() (int64, error)        // Returns current position
 	Read(buffer []byte) (int, error) // Read a chunk of data
 	Close() error                    // Closes the stream
 }
@@ -41,6 +42,15 @@ func (this *hdfsReaderImpl) Seek(pos int64) error {
 		return errors.New("Can't seek to requested position")
 	}
 	return nil
+}
+
+// Returns current position
+func (this *hdfsReaderImpl) Position() (int64, error) {
+	actualPos, err := this.BackendReader.Seek(0, 1)
+	if err != nil {
+		return 0, err
+	}
+	return actualPos, nil
 }
 
 // Closes the stream

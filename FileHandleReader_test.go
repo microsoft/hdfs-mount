@@ -114,7 +114,7 @@ func RandomAccess(t *testing.T, fileSize int64, maxRead int) {
 			expectedMinBytesRead = int(fileSize - offset)
 		}
 
-		// Executing read requestnn
+		// Executing read request
 		resp := fuse.ReadResponse{Data: make([]byte, 0, size)}
 		err := handle.Read(nil, &fuse.ReadRequest{Offset: offset, Size: size}, &resp)
 		assert.Nil(t, err)
@@ -178,32 +178,45 @@ func (handle *FileHandle) readAndVerify(t *testing.T, offset int64, size int, da
 type PseudoRandomHdfsReader struct {
 	Rand     *rand.Rand
 	FileSize int64
-	Position int64
+	position int64
 	IsClosed bool
 }
 
 func (this *PseudoRandomHdfsReader) Seek(pos int64) error {
-	this.Position = pos
+	this.position = pos
 	return nil
 }
 
+func (this *PseudoRandomHdfsReader) Position() (int64, error) {
+	return this.position, nil
+}
+
 func (this *PseudoRandomHdfsReader) Read(buf []byte) (int, error) {
-	if this.Position >= this.FileSize {
+	if this.position >= this.FileSize {
 		return 0, io.EOF
 	}
 	if len(buf) == 0 {
 		return 0, nil
 	}
 	// Deciding how many bytes to return
-	nr := this.Rand.Intn(len(buf)) + 1
-	if int64(nr) > this.FileSize-this.Position {
-		nr = int(this.FileSize - this.Position)
+	var nr int
+	if this.Rand == nil {
+		// If randomized isn't provided then returning as many as requested
+		nr = len(buf)
+	} else {
+		// Otherwise random length:
+		nr = this.Rand.Intn(len(buf)) + 1
+	}
+
+	// Adjusting for the case of the reading close to the end of the file
+	if int64(nr) > this.FileSize-this.position {
+		nr = int(this.FileSize - this.position)
 	}
 	// Programmatically generating data
 	for i := 0; i < nr; i++ {
-		buf[i] = generateByteAtOffset(this.Position + int64(i))
+		buf[i] = generateByteAtOffset(this.position + int64(i))
 	}
-	this.Position += int64(nr)
+	this.position += int64(nr)
 	return nr, nil
 }
 

@@ -68,6 +68,13 @@ func (this *FaultTolerantHdfsReader) Seek(pos int64) error {
 	return err
 }
 
+// Returns current position
+func (this *FaultTolerantHdfsReader) Position() (int64, error) {
+	// This fault-tolerant wrapper keeps track the position on its own, no need
+	// to query the backend
+	return this.Offset, nil
+}
+
 // Closes the stream
 func (this *FaultTolerantHdfsReader) Close() error {
 	return this.Impl.Close()
