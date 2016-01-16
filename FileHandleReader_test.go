@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand"
 	"testing"
+	"time"
 )
 
 // Testing reading of an empty file
@@ -194,6 +195,7 @@ func (this *PseudoRandomHdfsReader) Position() (int64, error) {
 }
 
 func (this *PseudoRandomHdfsReader) Read(buf []byte) (int, error) {
+	time.Sleep(1 * time.Millisecond)
 	this.ReaderStats.IncrementRead()
 	if this.position >= this.FileSize {
 		return 0, io.EOF
