@@ -79,7 +79,7 @@ func (this *MockRandomAccessHdfsAccessor) EnsureConnected() error {
 
 // Opens HDFS file for reading
 func (this *MockRandomAccessHdfsAccessor) OpenRead(path string) (HdfsReader, error) {
-	return &PseudoRandomHdfsReader{FileSize: int64(5 * 1024 * 1024 * 1024), ReaderStats: &this.ReaderStats}, nil
+	return &MockPseudoRandomHdfsReader{FileSize: int64(5 * 1024 * 1024 * 1024), ReaderStats: &this.ReaderStats}, nil
 }
 
 // Opens HDFS file for writing

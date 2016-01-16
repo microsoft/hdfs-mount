@@ -40,7 +40,7 @@ func NewRandomAccessHdfsReader(hdfsAccessor HdfsAccessor, path string) (*RandomA
 }
 
 func (this *RandomAccessHdfsReader) ReadAt(buffer []byte, offset int64) (int, error) {
-	reader, err := this.getReaderFromPool(offset)
+	reader, err := this.getReaderFromPoolOrCreateNew(offset)
 	defer func() {
 		if err == nil {
 			this.returnReaderToPool(reader)
@@ -79,17 +79,30 @@ func (this *RandomAccessHdfsReader) Close() error {
 	return nil
 }
 
-// Retrievs an optimal reader from pool or create new one
+// Retrieves an optimal reader from pool or creates new one
+func (this *RandomAccessHdfsReader) getReaderFromPoolOrCreateNew(offset int64) (HdfsReader, error) {
+	reader, err := this.getReaderFromPool(offset)
+	if err != nil {
+		return reader, err
+	}
+	if reader != nil {
+		return reader, nil
+	} else {
+		// Creating new reader
+		return this.HdfsAccessor.OpenRead(this.Path)
+	}
+}
+
+// Retrievs an optimal reader from pool or nil if pool is empty
 func (this *RandomAccessHdfsReader) getReaderFromPool(offset int64) (HdfsReader, error) {
 	this.PoolLock.Lock()
+	defer this.PoolLock.Unlock()
 	if this.Pool == nil {
-		this.PoolLock.Unlock()
 		return nil, errors.New("RandomAccessHdfsReader closed")
 	}
 	if len(this.Pool) == 0 {
-		// Empty pool. Creating new reader and returning it directly
-		this.PoolLock.Unlock()
-		return this.HdfsAccessor.OpenRead(this.Path)
+		// Empty pool
+		return nil, nil
 	}
 	reader, ok := this.Pool[offset]
 	var key int64
@@ -107,7 +120,6 @@ func (this *RandomAccessHdfsReader) getReaderFromPool(offset int64) (HdfsReader,
 	}
 	// removing from pool before returning
 	delete(this.Pool, key)
-	this.PoolLock.Unlock()
 	return reader, nil
 }
 
