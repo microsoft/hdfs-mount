@@ -7,39 +7,36 @@ import (
 	"sync"
 )
 
-// Implments io.ReaderAt, io.Closer providing efficient concurrent random access to the file
-// on HDFS. Concurrency is achieved by pooling HdfsReader objects. In order to optimize
-// sequential read scenario of a fragment of the file, pool datastructure is organized
-// as a dictionary keyed by the seek position, so continuation of reading of a chunk
-// with high probability goes to the HdfsReader which is already at desired position with
-// more data waiting in network buffers
-type RandomAccessHdfsReader struct {
+// RandomAccessHdfsReader Implments io.ReaderAt, io.Closer providing efficient concurrent
+// random access to the file on HDFS. Concurrency is achieved by pooling HdfsReader objects.
+// In order to optimize sequential read scenario of a fragment of the file, pool datastructure
+// is organized as a map keyed by the seek position, so sequential read of adjacent file chunks
+// with high probability goes to the same HdfsReader
+type RandomAccessHdfsReader interface {
+	io.ReaderAt
+	io.Closer
+}
+
+type randomAccessHdfsReaderImpl struct {
 	HdfsAccessor HdfsAccessor         // HDFS accessor used to create HdfsReader objects
 	Path         string               // Path to the file
-	Size         uint64               // Cached size of the file
 	Pool         map[int64]HdfsReader // Pool of HdfsReader objects keyed by the seek position
 	PoolLock     sync.Mutex           // Exclusive lock for the Pool
 	MaxReaders   int                  // Maximum number of readers in the pool
 }
 
-var _ io.ReaderAt = (*RandomAccessHdfsReader)(nil) // ensure RandomAccessHdfsReader implements io.ReaderAt
-var _ io.Closer = (*RandomAccessHdfsReader)(nil)   // ensure RandomAccessHdfsReader implements io.Closer
+var _ RandomAccessHdfsReader = (*randomAccessHdfsReaderImpl)(nil) // ensure randomAccessHdfsReader implements RandomAccessHdfsReader
 
-func NewRandomAccessHdfsReader(hdfsAccessor HdfsAccessor, path string) (*RandomAccessHdfsReader, error) {
-	this := &RandomAccessHdfsReader{
+func NewRandomAccessHdfsReader(hdfsAccessor HdfsAccessor, path string) RandomAccessHdfsReader {
+	this := &randomAccessHdfsReaderImpl{
 		HdfsAccessor: hdfsAccessor,
 		Path:         path,
 		Pool:         map[int64]HdfsReader{},
 		MaxReaders:   100}
-	attrs, err := hdfsAccessor.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	this.Size = attrs.Size
-	return this, nil
+	return this
 }
 
-func (this *RandomAccessHdfsReader) ReadAt(buffer []byte, offset int64) (int, error) {
+func (this *randomAccessHdfsReaderImpl) ReadAt(buffer []byte, offset int64) (int, error) {
 	reader, err := this.getReaderFromPoolOrCreateNew(offset)
 	defer func() {
 		if err == nil {
@@ -68,7 +65,7 @@ func (this *RandomAccessHdfsReader) ReadAt(buffer []byte, offset int64) (int, er
 }
 
 // Closes all the readers
-func (this *RandomAccessHdfsReader) Close() error {
+func (this *randomAccessHdfsReaderImpl) Close() error {
 	this.PoolLock.Lock()
 	defer this.PoolLock.Unlock()
 	log.Printf("RandomAccessHdfsReader[%s]: closing %d readers\n", this.Path, len(this.Pool))
@@ -80,7 +77,7 @@ func (this *RandomAccessHdfsReader) Close() error {
 }
 
 // Retrieves an optimal reader from pool or creates new one
-func (this *RandomAccessHdfsReader) getReaderFromPoolOrCreateNew(offset int64) (HdfsReader, error) {
+func (this *randomAccessHdfsReaderImpl) getReaderFromPoolOrCreateNew(offset int64) (HdfsReader, error) {
 	reader, err := this.getReaderFromPool(offset)
 	if err != nil {
 		return reader, err
@@ -94,7 +91,7 @@ func (this *RandomAccessHdfsReader) getReaderFromPoolOrCreateNew(offset int64) (
 }
 
 // Retrievs an optimal reader from pool or nil if pool is empty
-func (this *RandomAccessHdfsReader) getReaderFromPool(offset int64) (HdfsReader, error) {
+func (this *randomAccessHdfsReaderImpl) getReaderFromPool(offset int64) (HdfsReader, error) {
 	this.PoolLock.Lock()
 	defer this.PoolLock.Unlock()
 	if this.Pool == nil {
@@ -124,7 +121,7 @@ func (this *RandomAccessHdfsReader) getReaderFromPool(offset int64) (HdfsReader,
 }
 
 // Returns idle reader back to the pool
-func (this *RandomAccessHdfsReader) returnReaderToPool(reader HdfsReader) {
+func (this *randomAccessHdfsReaderImpl) returnReaderToPool(reader HdfsReader) {
 	this.PoolLock.Lock()
 	defer this.PoolLock.Unlock()
 	// If pool was destroyed or is full then closing current reader w/o returning

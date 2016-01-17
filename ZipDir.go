@@ -59,8 +59,14 @@ func (this *ZipDir) ReadArchive() error {
 		return nil
 	}
 
+	randomAccessReader, size, err := this.FileSystem.HdfsAccessor.OpenReadForRandomAccess(this.ZipFilePath)
+	if err != nil {
+		log.Printf("Error opening zip file: %s: %s", this.ZipFilePath, err.Error())
+		return err
+	}
+
 	// Opening zip file (reading metadata of all archived files)
-	zipArchiveReader, err := zip.OpenReader(this.ZipFilePath)
+	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(size))
 	if err == nil {
 		log.Printf("Opened zip file: %s", this.ZipFilePath)
 	} else {
@@ -69,7 +75,7 @@ func (this *ZipDir) ReadArchive() error {
 	}
 
 	// Register zipArchiveReader to be closed during unmount
-	this.FileSystem.CloseOnUnmount(zipArchiveReader)
+	this.FileSystem.CloseOnUnmount(randomAccessReader)
 
 	this.SubDirs = make(map[string]*ZipDir)
 	this.Files = make(map[string]*ZipFile)

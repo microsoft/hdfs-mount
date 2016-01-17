@@ -99,8 +99,7 @@ func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 			attrs.Mode |= os.ModeDir | 0111 // TODO: set x only if r is set
 			attrs.Name = name
 			attrs.Inode = 0 // let underlying FUSE layer to assign inodes automatically
-			zipFileName := this.FileSystem.MountPoint + this.AbsolutePathForChild(zipFileName)
-			return NewZipRootDir(this.FileSystem, zipFileName, attrs), nil
+			return NewZipRootDir(this.FileSystem, this.AbsolutePathForChild(zipFileName), attrs), nil
 		}
 	}
 

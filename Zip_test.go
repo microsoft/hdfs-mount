@@ -41,7 +41,10 @@ func TestZipDirReadArchive(t *testing.T) {
 	mockClock := &MockClock{}
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, true, mockClock)
-	zipRootDir := NewZipRootDir(fs, testZipPath(), Attrs{Name: "test.zip@", Mode: 0777 | os.ModeDir})
+	st, err := os.Stat(testZipPath())
+	zipFile, err := os.Open(testZipPath())
+	hdfsAccessor.EXPECT().OpenReadForRandomAccess("/foo/test.zip").Return(RandomAccessHdfsReader(zipFile), uint64(st.Size()), err)
+	zipRootDir := NewZipRootDir(fs, "/foo/test.zip", Attrs{Name: "test.zip@", Mode: 0777 | os.ModeDir})
 	foo, err := zipRootDir.Lookup(nil, "foo")
 	assert.Nil(t, err)
 	assert.Equal(t, "foo", foo.(*ZipDir).Attrs.Name)

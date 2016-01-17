@@ -47,6 +47,20 @@ func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (HdfsReader, error)
 	}
 }
 
+// Opens HDFS file for efficient concurrent random access. Returns file size and RandomAccessHdfsReader interface
+func (this *FaultTolerantHdfsAccessor) OpenReadForRandomAccess(path string) (RandomAccessHdfsReader, uint64, error) {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		reader, size, err := this.Impl.OpenReadForRandomAccess(path)
+		if err == nil {
+			return reader, size, nil
+		}
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] OpenReadForRandomAccess: %s", path, err) {
+			return nil, 0, err
+		}
+	}
+}
+
 // Opens HDFS file for writing
 func (this *FaultTolerantHdfsAccessor) OpenWrite(path string) (HdfsWriter, error) {
 	op := this.RetryPolicy.StartOperation()
