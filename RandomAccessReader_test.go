@@ -16,7 +16,7 @@ func TestHdfsRandomAccessReader(t *testing.T) {
 	// Setting up mockery, to serve that large virtual file
 	fileSize := int64(5 * 1024 * 1024 * 1024)
 	hdfsAccessor := &MockRandomAccessHdfsAccessor{}
-	reader := NewRandomAccessHdfsReader(hdfsAccessor, "/path/to/5G.blob")
+	reader := NewRandomAccessReader(hdfsAccessor, "/path/to/5G.blob")
 	// Launching 10 parallel goroutines to concurrently read fragments of a file
 	var join sync.WaitGroup
 	allSuccessful := true
@@ -80,7 +80,7 @@ func (this *MockRandomAccessHdfsAccessor) OpenRead(path string) (ReadSeekCloser,
 }
 
 // Opens HDFS file for random access
-func (this *MockRandomAccessHdfsAccessor) OpenReadForRandomAccess(path string) (RandomAccessHdfsReader, uint64, error) {
+func (this *MockRandomAccessHdfsAccessor) OpenReadForRandomAccess(path string) (RandomAccessReader, uint64, error) {
 	return nil, 0, errors.New("OpenReadForRandomAccess is not implemented")
 
 }

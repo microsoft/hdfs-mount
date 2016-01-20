@@ -21,7 +21,7 @@ import (
 // Concurrency: thread safe: handles unlimited number of concurrent requests
 type HdfsAccessor interface {
 	OpenRead(path string) (ReadSeekCloser, error)                                // Opens HDFS file for reading
-	OpenReadForRandomAccess(path string) (RandomAccessHdfsReader, uint64, error) // opens file for efficient concurrent random access
+	OpenReadForRandomAccess(path string) (RandomAccessReader, uint64, error) // opens file for efficient concurrent random access
 	OpenWrite(path string) (HdfsWriter, error)                                   // Opens HDFS file for writing
 	ReadDir(path string) ([]Attrs, error)                                        // Enumerates HDFS directory
 	Stat(path string) (Attrs, error)                                             // retrieves file/directory attributes
@@ -127,13 +127,13 @@ func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
 	return NewHdfsReader(reader), nil
 }
 
-// Opens HDFS file for efficient concurrent random access. Returns file size and RandomAccessHdfsReader interface
-func (this *hdfsAccessorImpl) OpenReadForRandomAccess(path string) (RandomAccessHdfsReader, uint64, error) {
+// Opens HDFS file for efficient concurrent random access. Returns file size and RandomAccessReader interface
+func (this *hdfsAccessorImpl) OpenReadForRandomAccess(path string) (RandomAccessReader, uint64, error) {
 	attrs, err := this.Stat(path)
 	if err != nil {
 		return nil, 0, err
 	}
-	return NewRandomAccessHdfsReader(this, path), attrs.Size, nil
+	return NewRandomAccessReader(this, path), attrs.Size, nil
 }
 
 // Opens HDFS file for writing
