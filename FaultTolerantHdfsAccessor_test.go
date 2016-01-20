@@ -64,8 +64,8 @@ func TestOpenReadWithRetries(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	ftHdfsAccessor := NewFaultTolerantHdfsAccessor(hdfsAccessor, atMost2Attempts())
-	mockReader := NewMockHdfsReader(mockCtrl)
-	var result HdfsReader
+	mockReader := NewMockReadSeekCloser(mockCtrl)
+	var result ReadSeekCloser
 	var err error
 	hdfsAccessor.EXPECT().OpenRead("/test/file").Return(nil, errors.New("Injected failure"))
 	hdfsAccessor.EXPECT().OpenRead("/test/file").Return(mockReader, nil)

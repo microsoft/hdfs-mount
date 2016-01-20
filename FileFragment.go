@@ -10,7 +10,7 @@ type FileFragment struct {
 }
 
 // Reads into the file fragment buffer from the backend
-func (this *FileFragment) ReadFromBackend(hdfsReader HdfsReader, offset *int64, minBytesToRead int, maxBytesToRead int) error {
+func (this *FileFragment) ReadFromBackend(hdfsReader ReadSeekCloser, offset *int64, minBytesToRead int, maxBytesToRead int) error {
 	if cap(this.Data) < maxBytesToRead {
 		// not enough capacity - realloating
 		this.Data = make([]byte, maxBytesToRead)

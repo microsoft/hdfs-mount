@@ -2,18 +2,18 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 package main
 
-// Implements HdfsReader interface with automatic retries (acts as a proxy to HdfsReader)
+// Implements ReadSeekCloser interface with automatic retries (acts as a proxy to HdfsReader)
 type FaultTolerantHdfsReader struct {
 	Path         string
-	Impl         HdfsReader
+	Impl         ReadSeekCloser
 	HdfsAccessor HdfsAccessor
 	RetryPolicy  *RetryPolicy
 	Offset       int64
 }
 
-var _ HdfsReader = (*FaultTolerantHdfsReader)(nil) // ensure FaultTolerantHdfsReaderImpl implements HdfsReader
+var _ ReadSeekCloser = (*FaultTolerantHdfsReader)(nil) // ensure FaultTolerantHdfsReaderImpl implements ReadSeekCloser
 // Creates new instance of FaultTolerantHdfsReader
-func NewFaultTolerantHdfsReader(path string, impl HdfsReader, hdfsAccessor HdfsAccessor, retryPolicy *RetryPolicy) *FaultTolerantHdfsReader {
+func NewFaultTolerantHdfsReader(path string, impl ReadSeekCloser, hdfsAccessor HdfsAccessor, retryPolicy *RetryPolicy) *FaultTolerantHdfsReader {
 	return &FaultTolerantHdfsReader{Path: path, Impl: impl, HdfsAccessor: hdfsAccessor, RetryPolicy: retryPolicy}
 }
 

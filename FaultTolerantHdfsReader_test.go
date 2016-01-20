@@ -13,7 +13,7 @@ import (
 // Testing retry logic for Read()
 func TestSeekAndReadWithRetries(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	ftHdfsReader := NewFaultTolerantHdfsReader("/path/to/file", hdfsReader, hdfsAccessor, atMost2Attempts())
 
@@ -34,7 +34,7 @@ func TestSeekAndReadWithRetries(t *testing.T) {
 	// As a result, ftHdfsReader should close the stream...
 	hdfsReader.EXPECT().Close().Return(nil)
 	// ...and invoke an OpenRead() to get new HdfsReader
-	newHdfsReader := NewMockHdfsReader(mockCtrl)
+	newHdfsReader := NewMockReadSeekCloser(mockCtrl)
 	hdfsAccessor.EXPECT().OpenRead("/path/to/file").Return(newHdfsReader, nil)
 	// It should seek at corret position (1060), and repeat the read
 	newHdfsReader.EXPECT().Seek(int64(1060)).Return(nil)
@@ -47,7 +47,7 @@ func TestSeekAndReadWithRetries(t *testing.T) {
 // No retries on benigh errors (e.g. EOF)
 func TestNoRetryOnEOF(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	ftHdfsReader := NewFaultTolerantHdfsReader("/path/to/file", hdfsReader, hdfsAccessor, atMost2Attempts())
 

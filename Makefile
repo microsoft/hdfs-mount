@@ -57,6 +57,6 @@ test: hdfs-mount \
       $(GOPATH)/src/github.com/golang/mock/gomock \
       $(MOCKGEN_DIR)/mockgen \
       mock_HdfsAccessor_test.go \
-      mock_HdfsReader_test.go \
+      mock_ReadSeekCloser_test.go \
       mock_HdfsWriter_test.go
 	go test

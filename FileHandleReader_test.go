@@ -14,7 +14,7 @@ import (
 // Testing reading of an empty file
 func TestEmptyFile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 	hdfsReader.whenReadReturn([]byte{}, io.EOF)
 	handle.readAndVerify(t, 0, 1024, []byte{})
@@ -25,7 +25,7 @@ func TestEmptyFile(t *testing.T) {
 // Testing reading of a small "HelloWorld!" file using few Read() operations
 func TestSmallFileSequentialRead(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.whenReadReturn([]byte("Hel"), nil)
@@ -46,7 +46,7 @@ func TestSmallFileSequentialRead(t *testing.T) {
 // this should not cause Seek() on the backend HDFS reader
 func TestReoderedReadsDontCauseSeek(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.whenReadReturn([]byte("He"), nil)
@@ -64,7 +64,7 @@ func TestReoderedReadsDontCauseSeek(t *testing.T) {
 // Seak()->Read()->Read()->Seek()->Read()
 func TestSeekAndRead(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.expectSeek(1000000)
@@ -141,7 +141,7 @@ func RandomAccess(t *testing.T, fileSize int64, maxRead int) {
 ///////////////// Test Helpers /////////////////////
 
 // common setup for FileHandleReader testing
-func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader HdfsReader) *FileHandle {
+func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader ReadSeekCloser) *FileHandle {
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	hdfsAccessor.EXPECT().Stat("/test.dat").Return(Attrs{Name: "test.dat"}, nil)
 	hdfsAccessor.EXPECT().OpenRead("/test.dat").Return(hdfsReader, nil)
@@ -153,7 +153,7 @@ func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader Hdfs
 }
 
 // sets hdfsReader mock to respond on Read() request in a certain way
-func (hdfsReader *MockHdfsReader) whenReadReturn(data []byte, err error) {
+func (hdfsReader *MockReadSeekCloser) whenReadReturn(data []byte, err error) {
 	hdfsReader.EXPECT().Read(gomock.Any()).Do(
 		func(buf []byte) {
 			copy(buf, data)
@@ -161,7 +161,7 @@ func (hdfsReader *MockHdfsReader) whenReadReturn(data []byte, err error) {
 }
 
 // sets hdfsReader mock to respond on Read() request in a certain way
-func (hdfsReader *MockHdfsReader) expectSeek(pos int64) {
+func (hdfsReader *MockReadSeekCloser) expectSeek(pos int64) {
 	hdfsReader.EXPECT().Seek(pos).Return(nil)
 }
 

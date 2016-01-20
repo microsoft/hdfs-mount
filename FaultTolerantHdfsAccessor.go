@@ -33,7 +33,7 @@ func (this *FaultTolerantHdfsAccessor) EnsureConnected() error {
 }
 
 // Opens HDFS file for reading
-func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (HdfsReader, error) {
+func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (ReadSeekCloser, error) {
 	op := this.RetryPolicy.StartOperation()
 	for {
 		result, err := this.Impl.OpenRead(path)

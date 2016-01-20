@@ -9,21 +9,14 @@ import (
 
 // Allows to open an HDFS file as a seekable read-only stream
 // Concurrency: not thread safe: at most on request at a time
-type HdfsReader interface {
-	Seek(pos int64) error            // Seeks to a given position
-	Position() (int64, error)        // Returns current position
-	Read(buffer []byte) (int, error) // Read a chunk of data
-	Close() error                    // Closes the stream
-}
-
 type hdfsReaderImpl struct {
 	BackendReader *hdfs.FileReader
 }
 
-var _ HdfsReader = (*hdfsReaderImpl)(nil) // ensure hdfsReaderImpl implements HdfsReader
+var _ ReadSeekCloser = (*hdfsReaderImpl)(nil) // ensure hdfsReaderImpl implements ReadSeekCloser
 
 // Creates new instance of HdfsReader
-func NewHdfsReader(backendReader *hdfs.FileReader) HdfsReader {
+func NewHdfsReader(backendReader *hdfs.FileReader) ReadSeekCloser {
 	return &hdfsReaderImpl{BackendReader: backendReader}
 }
 

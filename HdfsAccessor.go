@@ -20,7 +20,7 @@ import (
 // Interface for accessing HDFS
 // Concurrency: thread safe: handles unlimited number of concurrent requests
 type HdfsAccessor interface {
-	OpenRead(path string) (HdfsReader, error)                                    // Opens HDFS file for reading
+	OpenRead(path string) (ReadSeekCloser, error)                                // Opens HDFS file for reading
 	OpenReadForRandomAccess(path string) (RandomAccessHdfsReader, uint64, error) // opens file for efficient concurrent random access
 	OpenWrite(path string) (HdfsWriter, error)                                   // Opens HDFS file for writing
 	ReadDir(path string) ([]Attrs, error)                                        // Enumerates HDFS directory
@@ -114,7 +114,7 @@ func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client
 }
 
 // Opens HDFS file for reading
-func (this *hdfsAccessorImpl) OpenRead(path string) (HdfsReader, error) {
+func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
 	client, err1 := this.ConnectToNameNode()
 	if err1 != nil {
 		return nil, err1
