@@ -14,9 +14,8 @@ import (
 
 // Encapsulates state and operations for a directory inside a zip file on HDFS file system
 type ZipDir struct {
-	FileSystem      *FileSystem         // Pointer to the owning filesystem
 	Attrs           Attrs               // Attributes of the directory
-	ZipFilePath     string              // Absolute path to the Zip file (on the mounted file system)
+	ZipFile         *File               // Zip file node
 	IsRoot          bool                // true if this ZipDir represents archive root
 	SubDirs         map[string]*ZipDir  // Sub-directories (immediate children)
 	Files           map[string]*ZipFile // Files in this directory
@@ -30,12 +29,11 @@ var _ fs.HandleReadDirAller = (*ZipDir)(nil)
 var _ fs.NodeStringLookuper = (*ZipDir)(nil)
 
 // Creates root dir node for zip archive
-func NewZipRootDir(fileSystem *FileSystem, zipFilePath string, attrs Attrs) *ZipDir {
+func NewZipRootDir(zipFile *File, attrs Attrs) *ZipDir {
 	return &ZipDir{
-		IsRoot:      true,
-		FileSystem:  fileSystem,
-		ZipFilePath: zipFilePath,
-		Attrs:       attrs}
+		IsRoot:  true,
+		ZipFile: zipFile,
+		Attrs:   attrs}
 }
 
 // Responds on FUSE request to get directory attributes
@@ -59,23 +57,18 @@ func (this *ZipDir) ReadArchive() error {
 		return nil
 	}
 
-	randomAccessReader, size, err := this.FileSystem.HdfsAccessor.OpenReadForRandomAccess(this.ZipFilePath)
-	if err != nil {
-		log.Printf("Error opening zip file: %s: %s", this.ZipFilePath, err.Error())
-		return err
-	}
-
 	// Opening zip file (reading metadata of all archived files)
-	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(size))
+	randomAccessReader := NewRandomAccessReader(this.ZipFile)
+	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(this.ZipFile.Attrs.Size))
 	if err == nil {
-		log.Printf("Opened zip file: %s", this.ZipFilePath)
+		log.Printf("Opened zip file: %s", this.ZipFile.AbsolutePath())
 	} else {
-		log.Printf("Error opening zip file: %s: %s", this.ZipFilePath, err.Error())
+		log.Printf("Error opening zip file: %s: %s", this.ZipFile.AbsolutePath(), err.Error())
 		return err
 	}
 
-	// Register zipArchiveReader to be closed during unmount
-	this.FileSystem.CloseOnUnmount(randomAccessReader)
+	// Register reader to be closed during unmount
+	this.ZipFile.FileSystem.CloseOnUnmount(randomAccessReader)
 
 	this.SubDirs = make(map[string]*ZipDir)
 	this.Files = make(map[string]*ZipFile)
@@ -106,9 +99,8 @@ func (this *ZipDir) ReadArchive() error {
 					// Current path component is the last component of the path:
 					// Creating ZipFile
 					dir.Files[name] = &ZipFile{
-						zipFile:    zipFile,
-						Attrs:      attrs,
-						FileSystem: this.FileSystem}
+						zipFile: zipFile,
+						Attrs:   attrs}
 				} else {
 					// Current path component is a directory, which we haven't previously observed
 					// Creating ZipDir

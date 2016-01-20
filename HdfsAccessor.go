@@ -20,13 +20,12 @@ import (
 // Interface for accessing HDFS
 // Concurrency: thread safe: handles unlimited number of concurrent requests
 type HdfsAccessor interface {
-	OpenRead(path string) (ReadSeekCloser, error)                                // Opens HDFS file for reading
-	OpenReadForRandomAccess(path string) (RandomAccessReader, uint64, error) // opens file for efficient concurrent random access
-	OpenWrite(path string) (HdfsWriter, error)                                   // Opens HDFS file for writing
-	ReadDir(path string) ([]Attrs, error)                                        // Enumerates HDFS directory
-	Stat(path string) (Attrs, error)                                             // retrieves file/directory attributes
-	Mkdir(path string, mode os.FileMode) error                                   // Creates a directory
-	EnsureConnected() error                                                      // Ensures HDFS accessor is connected to the HDFS name node
+	OpenRead(path string) (ReadSeekCloser, error) // Opens HDFS file for reading
+	OpenWrite(path string) (HdfsWriter, error)    // Opens HDFS file for writing
+	ReadDir(path string) ([]Attrs, error)         // Enumerates HDFS directory
+	Stat(path string) (Attrs, error)              // retrieves file/directory attributes
+	Mkdir(path string, mode os.FileMode) error    // Creates a directory
+	EnsureConnected() error                       // Ensures HDFS accessor is connected to the HDFS name node
 	//TODO: write operations...
 }
 
@@ -125,15 +124,6 @@ func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
 		return nil, err2
 	}
 	return NewHdfsReader(reader), nil
-}
-
-// Opens HDFS file for efficient concurrent random access. Returns file size and RandomAccessReader interface
-func (this *hdfsAccessorImpl) OpenReadForRandomAccess(path string) (RandomAccessReader, uint64, error) {
-	attrs, err := this.Stat(path)
-	if err != nil {
-		return nil, 0, err
-	}
-	return NewRandomAccessReader(this, path), attrs.Size, nil
 }
 
 // Opens HDFS file for writing

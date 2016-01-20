@@ -41,10 +41,17 @@ func TestZipDirReadArchive(t *testing.T) {
 	mockClock := &MockClock{}
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, true, mockClock)
-	st, err := os.Stat(testZipPath())
 	zipFile, err := os.Open(testZipPath())
-	hdfsAccessor.EXPECT().OpenReadForRandomAccess("/foo/test.zip").Return(RandomAccessReader(zipFile), uint64(st.Size()), err)
-	zipRootDir := NewZipRootDir(fs, "/foo/test.zip", Attrs{Name: "test.zip@", Mode: 0777 | os.ModeDir})
+	assert.Nil(t, err)
+	zipFileInfo, err := zipFile.Stat()
+	assert.Nil(t, err)
+	hdfsAccessor.EXPECT().Stat("/test.zip").Return(Attrs{Name: "test.zip", Size: uint64(zipFileInfo.Size())}, nil)
+	hdfsAccessor.EXPECT().OpenRead("/test.zip").Return(ReadSeekCloser(&FileAsReadSeekCloser{File: zipFile}), err)
+	root, err := fs.Root()
+	zipRootDirNode, err := root.(*Dir).Lookup(nil, "test.zip@")
+	assert.Nil(t, err)
+	zipRootDir := zipRootDirNode.(*ZipDir)
+
 	foo, err := zipRootDir.Lookup(nil, "foo")
 	assert.Nil(t, err)
 	assert.Equal(t, "foo", foo.(*ZipDir).Attrs.Name)
@@ -88,4 +95,29 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "qux", qux.(*ZipFile).Attrs.Name)
 	assert.Equal(t, uint64(1024), qux.(*ZipFile).Attrs.Size)
+}
+
+// ReadSeekCloser adapter for os.File
+type FileAsReadSeekCloser struct {
+	File *os.File
+}
+
+// Reads a chunk of data
+func (this *FileAsReadSeekCloser) Read(buffer []byte) (int, error) {
+	return this.File.Read(buffer)
+}
+
+// Seeks to a given position
+func (this *FileAsReadSeekCloser) Seek(pos int64) error {
+	_, err := this.File.Seek(pos, 0)
+	return err
+}
+
+// Returns reading position
+func (this *FileAsReadSeekCloser) Position() (int64, error) {
+	return this.File.Seek(0, 1)
+}
+
+func (this *FileAsReadSeekCloser) Close() error {
+	return this.File.Close()
 }

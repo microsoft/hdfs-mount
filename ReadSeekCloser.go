@@ -2,8 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 package main
 
-import ()
-
 // Implements simple Read()/Seek()/Close() interface to read from a file or stream
 // Concurrency: not thread safe: at most on request at a time
 type ReadSeekCloser interface {

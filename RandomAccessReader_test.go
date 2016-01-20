@@ -3,10 +3,8 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"sync"
 	"testing"
 )
@@ -15,8 +13,8 @@ import (
 func TestHdfsRandomAccessReader(t *testing.T) {
 	// Setting up mockery, to serve that large virtual file
 	fileSize := int64(5 * 1024 * 1024 * 1024)
-	hdfsAccessor := &MockRandomAccessHdfsAccessor{}
-	reader := NewRandomAccessReader(hdfsAccessor, "/path/to/5G.blob")
+	file := &Mock5GFile{ReaderStats: &ReaderStats{}}
+	reader := NewRandomAccessReader(file)
 	// Launching 10 parallel goroutines to concurrently read fragments of a file
 	var join sync.WaitGroup
 	allSuccessful := true
@@ -55,52 +53,24 @@ func TestHdfsRandomAccessReader(t *testing.T) {
 	join.Wait()
 	fmt.Printf("Goroutines joined\n")
 	reader.Close()
+
 	// Verify statistics:
-	assert.Equal(t, uint64(10*1000), hdfsAccessor.ReaderStats.ReadCount)
-	// Probability of hitting Seek is very low, verifying that counter is withing reasonable range
-	if hdfsAccessor.ReaderStats.SeekCount > 10 {
-		t.Error("Too many seeks (more than 1%):", hdfsAccessor.ReaderStats.SeekCount)
+	assert.Equal(t, uint64(10*1000), file.ReaderStats.ReadCount)
+	// Probability of hitting Seek is very low, verifying that counter is within reasonable range
+	if file.ReaderStats.SeekCount > 10 {
+		t.Error("Too many seeks (more than 1%):", file.ReaderStats.SeekCount)
+	} else {
+		fmt.Printf("Seek frequency: %g%%\n", float64(file.ReaderStats.SeekCount)/float64(file.ReaderStats.ReadCount)*100.0)
 	}
 	assert.True(t, allSuccessful)
 }
 
-type MockRandomAccessHdfsAccessor struct {
-	ReaderStats ReaderStats
+type Mock5GFile struct {
+	ReaderStats *ReaderStats
 }
 
-var _ HdfsAccessor = (*MockRandomAccessHdfsAccessor)(nil) // ensure MockRandomAccessHdfsAccessor implements HdfsAccessor
+var _ ReadSeekCloserFactory = (*Mock5GFile)(nil) // ensure Mock5GFile  implements ReadSeekCloserFactory
 
-func (this *MockRandomAccessHdfsAccessor) EnsureConnected() error {
-	return errors.New("EnsureConnected is not implemented")
-}
-
-// Opens HDFS file for reading
-func (this *MockRandomAccessHdfsAccessor) OpenRead(path string) (ReadSeekCloser, error) {
-	return &MockReadSeekCloserWithPseudoRandomContent{FileSize: int64(5 * 1024 * 1024 * 1024), ReaderStats: &this.ReaderStats}, nil
-}
-
-// Opens HDFS file for random access
-func (this *MockRandomAccessHdfsAccessor) OpenReadForRandomAccess(path string) (RandomAccessReader, uint64, error) {
-	return nil, 0, errors.New("OpenReadForRandomAccess is not implemented")
-
-}
-
-// Opens HDFS file for writing
-func (this *MockRandomAccessHdfsAccessor) OpenWrite(path string) (HdfsWriter, error) {
-	return nil, errors.New("OpenWrite is not implemented")
-}
-
-// Enumerates HDFS directory
-func (this *MockRandomAccessHdfsAccessor) ReadDir(path string) ([]Attrs, error) {
-	return nil, errors.New("ReadDir is not implemented")
-}
-
-// retrieves file/directory attributes
-func (this *MockRandomAccessHdfsAccessor) Stat(path string) (Attrs, error) {
-	return Attrs{Name: "5GB.blob", Size: 5 * 1024 * 1024 * 1024}, nil
-}
-
-// Creates a directory
-func (this *MockRandomAccessHdfsAccessor) Mkdir(path string, mode os.FileMode) error {
-	return errors.New("MkDir is not implemented")
+func (this *Mock5GFile) OpenRead() (ReadSeekCloser, error) {
+	return &MockReadSeekCloserWithPseudoRandomContent{FileSize: 5 * 1024 * 1024 * 1024, ReaderStats: this.ReaderStats}, nil
 }
