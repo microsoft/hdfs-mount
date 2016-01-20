@@ -60,7 +60,7 @@ func (this *randomAccessHdfsReaderImpl) ReadAt(buffer []byte, offset int64) (int
 			return 0, err
 		}
 	}
-	nr, err := reader.Read(buffer)
+	nr, err := io.ReadFull(reader, buffer)
 	return nr, err
 }
 
