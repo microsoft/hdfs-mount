@@ -9,24 +9,24 @@ import (
 
 // Allows to open an HDFS file as a seekable read-only stream
 // Concurrency: not thread safe: at most on request at a time
-type hdfsReaderImpl struct {
+type HdfsReader struct {
 	BackendReader *hdfs.FileReader
 }
 
-var _ ReadSeekCloser = (*hdfsReaderImpl)(nil) // ensure hdfsReaderImpl implements ReadSeekCloser
+var _ ReadSeekCloser = (*HdfsReader)(nil) // ensure HdfsReader implements ReadSeekCloser
 
 // Creates new instance of HdfsReader
 func NewHdfsReader(backendReader *hdfs.FileReader) ReadSeekCloser {
-	return &hdfsReaderImpl{BackendReader: backendReader}
+	return &HdfsReader{BackendReader: backendReader}
 }
 
 // Read a chunk of data
-func (this *hdfsReaderImpl) Read(buffer []byte) (int, error) {
+func (this *HdfsReader) Read(buffer []byte) (int, error) {
 	return this.BackendReader.Read(buffer)
 }
 
 // Seeks to a given position
-func (this *hdfsReaderImpl) Seek(pos int64) error {
+func (this *HdfsReader) Seek(pos int64) error {
 	actualPos, err := this.BackendReader.Seek(pos, 0)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (this *hdfsReaderImpl) Seek(pos int64) error {
 }
 
 // Returns current position
-func (this *hdfsReaderImpl) Position() (int64, error) {
+func (this *HdfsReader) Position() (int64, error) {
 	actualPos, err := this.BackendReader.Seek(0, 1)
 	if err != nil {
 		return 0, err
@@ -47,6 +47,6 @@ func (this *hdfsReaderImpl) Position() (int64, error) {
 }
 
 // Closes the stream
-func (this *hdfsReaderImpl) Close() error {
+func (this *HdfsReader) Close() error {
 	return this.BackendReader.Close()
 }
