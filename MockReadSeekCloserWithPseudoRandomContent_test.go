@@ -11,7 +11,7 @@ import (
 // This mock reader produces virtual 5G file with programmatically-generated pseudo-random content
 // where each byte is a determianistic function of its offset, so it is easy to verify
 // whether readinf of a chunk returns correct byte sequence
-type MockPseudoRandomHdfsReader struct {
+type MockReadSeekCloserWithPseudoRandomContent struct {
 	Rand        *rand.Rand
 	FileSize    int64
 	position    int64
@@ -20,19 +20,19 @@ type MockPseudoRandomHdfsReader struct {
 }
 
 // Seek to a given position
-func (this *MockPseudoRandomHdfsReader) Seek(pos int64) error {
+func (this *MockReadSeekCloserWithPseudoRandomContent) Seek(pos int64) error {
 	this.position = pos
 	this.ReaderStats.IncrementSeek()
 	return nil
 }
 
 // Returns current posistion
-func (this *MockPseudoRandomHdfsReader) Position() (int64, error) {
+func (this *MockReadSeekCloserWithPseudoRandomContent) Position() (int64, error) {
 	return this.position, nil
 }
 
 // Reads chunk into the specified buffer
-func (this *MockPseudoRandomHdfsReader) Read(buf []byte) (int, error) {
+func (this *MockReadSeekCloserWithPseudoRandomContent) Read(buf []byte) (int, error) {
 	// Sleeping for 1ms to yield to other threads
 	time.Sleep(1 * time.Millisecond)
 	this.ReaderStats.IncrementRead()
@@ -65,7 +65,7 @@ func (this *MockPseudoRandomHdfsReader) Read(buf []byte) (int, error) {
 }
 
 // Closes all underlying network connections
-func (this *MockPseudoRandomHdfsReader) Close() error {
+func (this *MockReadSeekCloserWithPseudoRandomContent) Close() error {
 	this.IsClosed = true
 	return nil
 }

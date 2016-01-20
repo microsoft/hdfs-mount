@@ -100,7 +100,7 @@ func TestRandomAccess5G(t *testing.T) {
 func RandomAccess(t *testing.T, fileSize int64, maxRead int) {
 	mockCtrl := gomock.NewController(t)
 	r := rand.New(rand.NewSource(0))
-	hdfsReader := &MockPseudoRandomHdfsReader{FileSize: fileSize, Rand: r}
+	hdfsReader := &MockReadSeekCloserWithPseudoRandomContent{FileSize: fileSize, Rand: r}
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	for iter := 0; iter < 1000; iter++ {
