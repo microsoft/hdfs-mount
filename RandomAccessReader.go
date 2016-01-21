@@ -6,9 +6,9 @@ import (
 	"sync"
 )
 
-// RandomAccessReader Implments io.ReaderAt, io.Closer providing efficient concurrent
+// RandomAccessReader implments io.ReaderAt, io.Closer providing efficient concurrent
 // random access to the HDFS file. Concurrency is achieved by pooling ReadSeekCloser objects.
-// In order to optimize sequential read scenario of a fragment of the file, pool datastructure
+// In order to optimize sequential read scenario of a fragment of the file, pool data structure
 // is organized as a map keyed by the seek position, so sequential read of adjacent file chunks
 // with high probability goes to the same ReadSeekCloser
 type RandomAccessReader interface {
@@ -29,7 +29,7 @@ func NewRandomAccessReader(file ReadSeekCloserFactory) RandomAccessReader {
 	this := &randomAccessReaderImpl{
 		File:       file,
 		Pool:       map[int64]ReadSeekCloser{},
-		MaxReaders: 100}
+		MaxReaders: 100} //TODO: [CR: alexeyk] make configurable
 	return this
 }
 
@@ -126,7 +126,7 @@ func (this *randomAccessReaderImpl) returnReaderToPool(reader ReadSeekCloser) {
 		return
 	}
 
-	// Getting reader position, if failed - we can't return readed to the pool
+	// Getting reader position, if failed - we can't return reader to the pool
 	key, err := reader.Position()
 	if err != nil {
 		go reader.Close()

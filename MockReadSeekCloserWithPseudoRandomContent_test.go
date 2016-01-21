@@ -9,8 +9,8 @@ import (
 )
 
 // This mock reader produces virtual 5G file with programmatically-generated pseudo-random content
-// where each byte is a determianistic function of its offset, so it is easy to verify
-// whether readinf of a chunk returns correct byte sequence
+// where each byte is a deterministic function of its offset, so it is easy to verify
+// whether reading of a chunk returns correct byte sequence
 type MockReadSeekCloserWithPseudoRandomContent struct {
 	Rand        *rand.Rand
 	FileSize    int64
@@ -49,6 +49,7 @@ func (this *MockReadSeekCloserWithPseudoRandomContent) Read(buf []byte) (int, er
 		nr = len(buf)
 	} else {
 		// Otherwise random length:
+		// Adding 1 to random number sicne we don't want to return 0 bytes
 		nr = this.Rand.Intn(len(buf)) + 1
 	}
 
