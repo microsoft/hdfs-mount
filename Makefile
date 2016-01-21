@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft. All rights reserved.
+ # Copyright (c) Microsoft. All rights reserved.
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 
 export GOPATH=$(PWD)/_gopath
@@ -57,6 +57,6 @@ test: hdfs-mount \
       $(GOPATH)/src/github.com/golang/mock/gomock \
       $(MOCKGEN_DIR)/mockgen \
       mock_HdfsAccessor_test.go \
-      mock_HdfsReader_test.go \
+      mock_ReadSeekCloser_test.go \
       mock_HdfsWriter_test.go
 	go test

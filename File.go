@@ -20,6 +20,9 @@ type File struct {
 var _ fs.Node = (*File)(nil)
 var _ fs.NodeOpener = (*File)(nil)
 
+// File is also a factory for ReadSeekCloser objects
+var _ ReadSeekCloserFactory = (*File)(nil)
+
 // Retunds absolute path of the file in HDFS namespace
 func (this *File) AbsolutePath() string {
 	return path.Join(this.Parent.AbsolutePath(), this.Attrs.Name)
@@ -43,4 +46,13 @@ func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.Op
 	var err error
 	handle, err := NewFileHandle(this)
 	return handle, err
+}
+
+// Opens file for reading
+func (this *File) OpenRead() (ReadSeekCloser, error) {
+	handle, err := this.Open(nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return NewFileHandleAsReadSeekCloser(handle.(*FileHandle)), nil
 }

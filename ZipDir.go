@@ -14,14 +14,13 @@ import (
 
 // Encapsulates state and operations for a directory inside a zip file on HDFS file system
 type ZipDir struct {
-	FileSystem      *FileSystem         // Pointer to the owning filesystem
-	Attrs           Attrs               // Attributes of the directory
-	ZipFilePath     string              // Absolute path to the Zip file (on the mounted file system)
-	IsRoot          bool                // true if this ZipDir represents archive root
-	SubDirs         map[string]*ZipDir  // Sub-directories (immediate children)
-	Files           map[string]*ZipFile // Files in this directory
-	ReadArchiveLock sync.Mutex          // Used when reading the archive for root zip node (IsRoot==true)
-	zipFile         *zip.File
+	Attrs            Attrs               // Attributes of the directory
+	ZipContainerFile *File               // Zip container file node
+	IsRoot           bool                // true if this ZipDir represents archive root
+	SubDirs          map[string]*ZipDir  // Sub-directories (immediate children)
+	Files            map[string]*ZipFile // Files in this directory
+	ReadArchiveLock  sync.Mutex          // Used when reading the archive for root zip node (IsRoot==true)
+	zipFile          *zip.File
 }
 
 // Verify that *Dir implements necesary FUSE interfaces
@@ -30,12 +29,11 @@ var _ fs.HandleReadDirAller = (*ZipDir)(nil)
 var _ fs.NodeStringLookuper = (*ZipDir)(nil)
 
 // Creates root dir node for zip archive
-func NewZipRootDir(fileSystem *FileSystem, zipFilePath string, attrs Attrs) *ZipDir {
+func NewZipRootDir(zipContainerFile *File, attrs Attrs) *ZipDir {
 	return &ZipDir{
-		IsRoot:      true,
-		FileSystem:  fileSystem,
-		ZipFilePath: zipFilePath,
-		Attrs:       attrs}
+		IsRoot:           true,
+		ZipContainerFile: zipContainerFile,
+		Attrs:            attrs}
 }
 
 // Responds on FUSE request to get directory attributes
@@ -60,16 +58,17 @@ func (this *ZipDir) ReadArchive() error {
 	}
 
 	// Opening zip file (reading metadata of all archived files)
-	zipArchiveReader, err := zip.OpenReader(this.ZipFilePath)
+	randomAccessReader := NewRandomAccessReader(this.ZipContainerFile)
+	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(this.ZipContainerFile.Attrs.Size))
 	if err == nil {
-		log.Printf("Opened zip file: %s", this.ZipFilePath)
+		log.Printf("Opened zip file: %s", this.ZipContainerFile.AbsolutePath())
 	} else {
-		log.Printf("Error opening zip file: %s: %s", this.ZipFilePath, err.Error())
+		log.Printf("Error opening zip file: %s: %s", this.ZipContainerFile.AbsolutePath(), err.Error())
 		return err
 	}
 
-	// Register zipArchiveReader to be closed during unmount
-	this.FileSystem.CloseOnUnmount(zipArchiveReader)
+	// Register reader to be closed during unmount
+	this.ZipContainerFile.FileSystem.CloseOnUnmount(randomAccessReader)
 
 	this.SubDirs = make(map[string]*ZipDir)
 	this.Files = make(map[string]*ZipFile)
@@ -100,18 +99,19 @@ func (this *ZipDir) ReadArchive() error {
 					// Current path component is the last component of the path:
 					// Creating ZipFile
 					dir.Files[name] = &ZipFile{
+						FileSystem: this.ZipContainerFile.FileSystem,
 						zipFile:    zipFile,
-						Attrs:      attrs,
-						FileSystem: this.FileSystem}
+						Attrs:      attrs}
 				} else {
 					// Current path component is a directory, which we haven't previously observed
 					// Creating ZipDir
 					dir.SubDirs[name] = &ZipDir{
-						zipFile: zipFile,
-						IsRoot:  false,
-						SubDirs: make(map[string]*ZipDir),
-						Files:   make(map[string]*ZipFile),
-						Attrs:   attrs}
+						zipFile:          zipFile,
+						ZipContainerFile: this.ZipContainerFile,
+						IsRoot:           false,
+						SubDirs:          make(map[string]*ZipDir),
+						Files:            make(map[string]*ZipFile),
+						Attrs:            attrs}
 				}
 			}
 		}

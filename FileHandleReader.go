@@ -15,13 +15,13 @@ import (
 // handle unordered reads which aren't far away from each other, so backend stream can
 // be read sequentially without seek
 type FileHandleReader struct {
-	HdfsReader HdfsReader    // Backend reader
-	Offset     int64         // Current offset for backend reader
-	Buffer1    *FileFragment // Most recent fragment from the backend reader
-	Buffer2    *FileFragment // Least recent fragment read from the backend
-	Holes      int64         // tracks number of encountered "holes" TODO: find better name
-	CacheHits  int64         // tracks number of cache hits (read requests from buffer)
-	Seeks      int64         // tracks number of seeks performed on the backend stream
+	HdfsReader ReadSeekCloser // Backend reader
+	Offset     int64          // Current offset for backend reader
+	Buffer1    *FileFragment  // Most recent fragment from the backend reader
+	Buffer2    *FileFragment  // Least recent fragment read from the backend
+	Holes      int64          // tracks number of encountered "holes" TODO: find better name
+	CacheHits  int64          // tracks number of cache hits (read requests from buffer)
+	Seeks      int64          // tracks number of seeks performed on the backend stream
 }
 
 // Opens the reader (creates backend reader)

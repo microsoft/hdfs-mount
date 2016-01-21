@@ -20,13 +20,13 @@ import (
 // Interface for accessing HDFS
 // Concurrency: thread safe: handles unlimited number of concurrent requests
 type HdfsAccessor interface {
-	OpenRead(path string) (HdfsReader, error)  // Opens HDFS file for reading
-	OpenWrite(path string) (HdfsWriter, error) // Opens HDFS file for writing
-	ReadDir(path string) ([]Attrs, error)      // Enumerates HDFS directory
-	Stat(path string) (Attrs, error)           // retrieves file/directory attributes
-	Mkdir(path string, mode os.FileMode) error // Creates a directory
-	EnsureConnected() error                    // Ensures HDFS accessor is connected to the HDFS name node
-	//TODO: mkdir, remove, etc...
+	OpenRead(path string) (ReadSeekCloser, error) // Opens HDFS file for reading
+	OpenWrite(path string) (HdfsWriter, error)    // Opens HDFS file for writing
+	ReadDir(path string) ([]Attrs, error)         // Enumerates HDFS directory
+	Stat(path string) (Attrs, error)              // retrieves file/directory attributes
+	Mkdir(path string, mode os.FileMode) error    // Creates a directory
+	EnsureConnected() error                       // Ensures HDFS accessor is connected to the HDFS name node
+	//TODO: write operations...
 }
 
 type hdfsAccessorImpl struct {
@@ -113,7 +113,7 @@ func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client
 }
 
 // Opens HDFS file for reading
-func (this *hdfsAccessorImpl) OpenRead(path string) (HdfsReader, error) {
+func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
 	client, err1 := this.ConnectToNameNode()
 	if err1 != nil {
 		return nil, err1

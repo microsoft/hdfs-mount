@@ -14,7 +14,7 @@ import (
 // Testing reading of an empty file
 func TestEmptyFile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 	hdfsReader.whenReadReturn([]byte{}, io.EOF)
 	handle.readAndVerify(t, 0, 1024, []byte{})
@@ -25,7 +25,7 @@ func TestEmptyFile(t *testing.T) {
 // Testing reading of a small "HelloWorld!" file using few Read() operations
 func TestSmallFileSequentialRead(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.whenReadReturn([]byte("Hel"), nil)
@@ -46,7 +46,7 @@ func TestSmallFileSequentialRead(t *testing.T) {
 // this should not cause Seek() on the backend HDFS reader
 func TestReoderedReadsDontCauseSeek(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.whenReadReturn([]byte("He"), nil)
@@ -64,7 +64,7 @@ func TestReoderedReadsDontCauseSeek(t *testing.T) {
 // Seak()->Read()->Read()->Seek()->Read()
 func TestSeekAndRead(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-	hdfsReader := NewMockHdfsReader(mockCtrl)
+	hdfsReader := NewMockReadSeekCloser(mockCtrl)
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	hdfsReader.expectSeek(1000000)
@@ -100,7 +100,7 @@ func TestRandomAccess5G(t *testing.T) {
 func RandomAccess(t *testing.T, fileSize int64, maxRead int) {
 	mockCtrl := gomock.NewController(t)
 	r := rand.New(rand.NewSource(0))
-	hdfsReader := &PseudoRandomHdfsReader{FileSize: fileSize, Rand: r}
+	hdfsReader := &MockReadSeekCloserWithPseudoRandomContent{FileSize: fileSize, Rand: r}
 	handle := createTestHandle(t, mockCtrl, hdfsReader)
 
 	for iter := 0; iter < 1000; iter++ {
@@ -141,7 +141,7 @@ func RandomAccess(t *testing.T, fileSize int64, maxRead int) {
 ///////////////// Test Helpers /////////////////////
 
 // common setup for FileHandleReader testing
-func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader HdfsReader) *FileHandle {
+func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader ReadSeekCloser) *FileHandle {
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	hdfsAccessor.EXPECT().Stat("/test.dat").Return(Attrs{Name: "test.dat"}, nil)
 	hdfsAccessor.EXPECT().OpenRead("/test.dat").Return(hdfsReader, nil)
@@ -153,7 +153,7 @@ func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader Hdfs
 }
 
 // sets hdfsReader mock to respond on Read() request in a certain way
-func (hdfsReader *MockHdfsReader) whenReadReturn(data []byte, err error) {
+func (hdfsReader *MockReadSeekCloser) whenReadReturn(data []byte, err error) {
 	hdfsReader.EXPECT().Read(gomock.Any()).Do(
 		func(buf []byte) {
 			copy(buf, data)
@@ -161,7 +161,7 @@ func (hdfsReader *MockHdfsReader) whenReadReturn(data []byte, err error) {
 }
 
 // sets hdfsReader mock to respond on Read() request in a certain way
-func (hdfsReader *MockHdfsReader) expectSeek(pos int64) {
+func (hdfsReader *MockReadSeekCloser) expectSeek(pos int64) {
 	hdfsReader.EXPECT().Seek(pos).Return(nil)
 }
 
@@ -173,60 +173,4 @@ func (handle *FileHandle) readAndVerify(t *testing.T, offset int64, size int, da
 	assert.NotNil(t, resp.Data)
 	assert.Equal(t, len(data), len(resp.Data))
 	assert.Equal(t, data, resp.Data)
-}
-
-type PseudoRandomHdfsReader struct {
-	Rand     *rand.Rand
-	FileSize int64
-	position int64
-	IsClosed bool
-}
-
-func (this *PseudoRandomHdfsReader) Seek(pos int64) error {
-	this.position = pos
-	return nil
-}
-
-func (this *PseudoRandomHdfsReader) Position() (int64, error) {
-	return this.position, nil
-}
-
-func (this *PseudoRandomHdfsReader) Read(buf []byte) (int, error) {
-	if this.position >= this.FileSize {
-		return 0, io.EOF
-	}
-	if len(buf) == 0 {
-		return 0, nil
-	}
-	// Deciding how many bytes to return
-	var nr int
-	if this.Rand == nil {
-		// If randomized isn't provided then returning as many as requested
-		nr = len(buf)
-	} else {
-		// Otherwise random length:
-		nr = this.Rand.Intn(len(buf)) + 1
-	}
-
-	// Adjusting for the case of the reading close to the end of the file
-	if int64(nr) > this.FileSize-this.position {
-		nr = int(this.FileSize - this.position)
-	}
-	// Programmatically generating data
-	for i := 0; i < nr; i++ {
-		buf[i] = generateByteAtOffset(this.position + int64(i))
-	}
-	this.position += int64(nr)
-	return nr, nil
-}
-
-func (this *PseudoRandomHdfsReader) Close() error {
-	this.IsClosed = true
-	return nil
-}
-
-// getting last 8 bits of a sum of remainders of a division to various prime numbers
-// this gives us pseudo-random file content which is good enough for testing scenarios
-func generateByteAtOffset(o int64) byte {
-	return byte(o%7 + o%11 + o%13 + o%127 + o%251 + o%31337 + o%1299709)
 }

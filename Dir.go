@@ -91,17 +91,21 @@ func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	}
 
 	if this.FileSystem.ExpandZips && strings.HasSuffix(name, ".zip@") {
-		var attrs Attrs
-		// looking at file attributes
+		// looking up original zip file
 		zipFileName := name[:len(name)-1]
-		err := this.LookupAttrs(zipFileName, &attrs)
-		if err == nil && !attrs.Mode.IsDir() {
-			attrs.Mode |= os.ModeDir | 0111 // TODO: set x only if r is set
-			attrs.Name = name
-			attrs.Inode = 0 // let underlying FUSE layer to assign inodes automatically
-			zipFileName := this.FileSystem.MountPoint + this.AbsolutePathForChild(zipFileName)
-			return NewZipRootDir(this.FileSystem, zipFileName, attrs), nil
+		zipFileNode, err := this.Lookup(nil, zipFileName)
+		if err != nil {
+			return nil, err
 		}
+		zipFile, ok := zipFileNode.(*File)
+		if !ok {
+			return nil, fuse.ENOENT
+		}
+		attrs := zipFile.Attrs
+		attrs.Mode |= os.ModeDir | 0111 // TODO: set x only if r is set
+		attrs.Name = name
+		attrs.Inode = 0 // let underlying FUSE layer to assign inodes automatically
+		return NewZipRootDir(zipFile, attrs), nil
 	}
 
 	var attrs Attrs
