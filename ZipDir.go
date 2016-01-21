@@ -99,13 +99,15 @@ func (this *ZipDir) ReadArchive() error {
 					// Current path component is the last component of the path:
 					// Creating ZipFile
 					dir.Files[name] = &ZipFile{
-						zipFile: zipFile,
-						Attrs:   attrs}
+						FileSystem: this.ZipFile.FileSystem,
+						zipFile:    zipFile,
+						Attrs:      attrs}
 				} else {
 					// Current path component is a directory, which we haven't previously observed
 					// Creating ZipDir
 					dir.SubDirs[name] = &ZipDir{
 						zipFile: zipFile,
+						ZipFile: this.ZipFile,
 						IsRoot:  false,
 						SubDirs: make(map[string]*ZipDir),
 						Files:   make(map[string]*ZipFile),
