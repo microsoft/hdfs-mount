@@ -29,7 +29,7 @@ func NewRandomAccessReader(file ReadSeekCloserFactory) RandomAccessReader {
 	this := &randomAccessReaderImpl{
 		File:       file,
 		Pool:       map[int64]ReadSeekCloser{},
-		MaxReaders: 100} //TODO: [CR: alexeyk] make configurable
+		MaxReaders: 256} //TODO: [CR: alexeyk] make configurable
 	return this
 }
 
