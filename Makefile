@@ -5,7 +5,7 @@ export GOPATH=$(PWD)/_gopath
 
 all: hdfs-mount 
 
-hdfs-mount: *.go $(GOPATH)/src/golang.org/src/archive/zip/.patched $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context
+hdfs-mount: *.go $(GOPATH)/src/golang.org/src/archive/zip/.patched $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs/.patched $(GOPATH)/src/golang.org/x/net/context
 	go build
 
 $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
@@ -13,6 +13,11 @@ $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
 
 $(GOPATH)/src/github.com/colinmarc/hdfs:
 	go get github.com/colinmarc/hdfs
+
+# Patching colinmarc/hdfs:
+$(GOPATH)/src/github.com/colinmarc/hdfs/.patched: $(GOPATH)/src/github.com/colinmarc/hdfs
+	cd $< && git apply $(PWD)/misc/colinmarc-hdfs-leak-fix.patch
+	touch $@
 
 $(GOPATH)/src/github.com/bazil/fuse:
 	go get github.com/bazil/fuse || [ -f $(GOPATH)/src/github.com/bazil/fuse/fuse.go ] && echo Ignore the error above - this is expected
