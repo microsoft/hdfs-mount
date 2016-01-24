@@ -1,0 +1,4 @@
+[submodule "submodules/colinmarc-hdfs"]
+	path = submodules/colinmarc-hdfs
+	url = git@github.com:Microsoft/colinmarc-hdfs.git
+	branch = vlivan/conn-leak-fix

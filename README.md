@@ -27,6 +27,12 @@ Current state
 If you want to use the component - come back in few weeks
 If you want to help - contact authors
 
+Building
+--------
+Ensure that you cloned the git repository recursively, since it contains submodules.
+Run 'make' to build and 'make test' to run unit test.
+Please use Go version at least 1.6beta2. This version contains bugfix for handling zip64 archives necessary for hdfs-mount to operate normally.
+
 Other Platforms
 ---------------
 It should be relatively easy to enable this working on MacOS and FreeBSD, since all underlying dependencies are MacOS and FreeBSD-ready. Very few changes are needed to the code to get it working on those platforms, but it is currently not a priority for authors. Contact authors if you want to help.

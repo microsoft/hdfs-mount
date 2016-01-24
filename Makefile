@@ -5,40 +5,21 @@ export GOPATH=$(PWD)/_gopath
 
 all: hdfs-mount 
 
-hdfs-mount: *.go $(GOPATH)/src/golang.org/src/archive/zip/.patched $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs/.patched $(GOPATH)/src/golang.org/x/net/context
+hdfs-mount: *.go $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context $(GOPATH)/src/github.com/golang/protobuf/proto
 	go build
 
 $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
 	ln -s $(GOPATH)/src/github.com/bazil $(GOPATH)/src/bazil.org
 
 $(GOPATH)/src/github.com/colinmarc/hdfs:
-	go get github.com/colinmarc/hdfs
-
-# Patching colinmarc/hdfs:
-$(GOPATH)/src/github.com/colinmarc/hdfs/.patched: $(GOPATH)/src/github.com/colinmarc/hdfs
-	cd $< && git apply $(PWD)/misc/colinmarc-hdfs-leak-fix.patch
-	touch $@
+	mkdir -p $(shell dirname $@)
+	ln -s ../../../../submodules/colinmarc-hdfs $@
 
 $(GOPATH)/src/github.com/bazil/fuse:
 	go get github.com/bazil/fuse || [ -f $(GOPATH)/src/github.com/bazil/fuse/fuse.go ] && echo Ignore the error above - this is expected
 
-$(GOPATH)/src/golang.org/x/net/context:
-	go get golang.org/x/net/context
-
-$(GOPATH)/src/github.com/stretchr/testify/assert:
-	go get github.com/stretchr/testify/assert
-
-$(GOPATH)/src/github.com/golang/mock/gomock:
-	go get github.com/golang/mock/gomock
-
-# Patching archive/zip implementation for proper handling of zip64 archives
-$(GOPATH)/src/golang.org/src/archive/zip:
-	mkdir -p $(GOPATH)/src/golang.org/src/archive
-	cp -r $(shell dirname `which go`)/../src/archive/zip $@
-
-$(GOPATH)/src/golang.org/src/archive/zip/.patched: $(GOPATH)/src/golang.org/src/archive/zip misc/zip64-bugfix.patch
-	cd $(GOPATH)/src/golang.org/src &&	patch -p1 < $(PWD)/misc/zip64-bugfix.patch
-	touch $(GOPATH)/src/golang.org/src/archive/zip/.patched
+$(GOPATH)/src/%:
+	go get $*
 
 MOCKGEN_DIR=$(GOPATH)/src/github.com/golang/mock/mockgen
 
@@ -48,7 +29,6 @@ $(MOCKGEN_DIR)/mockgen.go:
 $(MOCKGEN_DIR)/mockgen: $(MOCKGEN_DIR)/mockgen.go
 	cd $(MOCKGEN_DIR) && go build
 	ls -la $(MOCKGEN_DIR)/mockgen
-
 
 clean:
 	rm -f hdfs-mount _mock_*.go
