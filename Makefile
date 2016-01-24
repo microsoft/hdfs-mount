@@ -12,6 +12,7 @@ $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
 	ln -s $(GOPATH)/src/github.com/bazil $(GOPATH)/src/bazil.org
 
 $(GOPATH)/src/github.com/colinmarc/hdfs:
+	[ -f submodules/colinmarc-hdfs/.git ] || { echo "ERROR: Please clone hdfs-mount repository recursively: git clone http://github.com/Microsoft/hdfs-mount --recursive"; exit 1; }
 	mkdir -p $(shell dirname $@)
 	ln -s ../../../../submodules/colinmarc-hdfs $@
 
