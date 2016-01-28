@@ -41,10 +41,24 @@ func (this *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
 // Responds to the FUSE file open request (creates new file handle)
 func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	log.Printf("[%s] Opened", this.AbsolutePath())
-	var err error
-	handle, err := NewFileHandle(this)
-	return handle, err
+	log.Printf("[%s] %v", this.AbsolutePath(), req.Flags)
+	handle := NewFileHandle(this)
+	if req.Flags.IsReadOnly() || req.Flags.IsReadWrite() {
+		err := handle.EnableRead()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if req.Flags.IsWriteOnly() || req.Flags.IsReadWrite() {
+		newFile := req.Flags.IsWriteOnly() && (req.Flags&fuse.OpenAppend != fuse.OpenAppend)
+		err := handle.EnableWrite(newFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return handle, nil
 }
 
 // Opens file for reading

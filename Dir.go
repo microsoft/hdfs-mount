@@ -188,3 +188,15 @@ func (this *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, er
 	}
 	return this.NodeFromAttrs(Attrs{Name: req.Name, Mode: req.Mode | os.ModeDir}), nil
 }
+
+func (this *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+	log.Printf("[%s] Create %s\n", this.AbsolutePathForChild(req.Name), req.Mode)
+	file := this.NodeFromAttrs(Attrs{Name: req.Name, Mode: req.Mode}).(*File)
+	handle := NewFileHandle(file)
+	err := handle.EnableWrite(true)
+	if err != nil {
+		log.Printf("[%s] Can't create file: %v", this.AbsolutePathForChild(req.Name), err)
+		return nil, nil, err
+	}
+	return file, handle, nil
+}

@@ -41,6 +41,7 @@ func (this *FileSystem) Mount() (*fuse.Conn, error) {
 		fuse.Subtype("hdfs"),
 		fuse.VolumeName("HDFS filesystem"),
 		fuse.AllowOther(),
+		fuse.WritebackCache(),
 		fuse.MaxReadahead(1024*64)) //TODO: make configurable
 	if err != nil {
 		return nil, err
