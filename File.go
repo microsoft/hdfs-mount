@@ -8,17 +8,22 @@ import (
 	"golang.org/x/net/context"
 	"log"
 	"path"
+	"sync"
 )
 
 type File struct {
 	FileSystem *FileSystem // pointer to the FieSystem which owns this file
 	Attrs      Attrs       // Cache of file attributes // TODO: implement TTL
 	Parent     *Dir        // Pointer to the parent directory (allows computing fully-qualified paths on demand)
+
+	activeHandles      []*FileHandle // list of opened file handles
+	activeHandlesMutex sync.Mutex    // mutex for activeHandles
 }
 
 // Verify that *File implements necesary FUSE interfaces
 var _ fs.Node = (*File)(nil)
 var _ fs.NodeOpener = (*File)(nil)
+var _ fs.NodeFsyncer = (*File)(nil)
 
 // File is also a factory for ReadSeekCloser objects
 var _ ReadSeekCloserFactory = (*File)(nil)
@@ -58,6 +63,7 @@ func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.Op
 		}
 	}
 
+	this.AddHandle(handle)
 	return handle, nil
 }
 
@@ -68,4 +74,45 @@ func (this *File) OpenRead() (ReadSeekCloser, error) {
 		return nil, err
 	}
 	return NewFileHandleAsReadSeekCloser(handle.(*FileHandle)), nil
+}
+
+// Registers an opened file handle
+func (this *File) AddHandle(handle *FileHandle) {
+	this.activeHandlesMutex.Lock()
+	defer this.activeHandlesMutex.Unlock()
+	this.activeHandles = append(this.activeHandles, handle)
+}
+
+// Unregisters an opened file handle
+func (this *File) RemoveHandle(handle *FileHandle) {
+	this.activeHandlesMutex.Lock()
+	defer this.activeHandlesMutex.Unlock()
+	for i, h := range this.activeHandles {
+		if h == handle {
+			this.activeHandles = append(this.activeHandles[:i], this.activeHandles[i+1:]...)
+			break
+		}
+	}
+}
+
+// Returns a snapshot of opened file handles
+func (this *File) GetActiveHandles() []*FileHandle {
+	this.activeHandlesMutex.Lock()
+	defer this.activeHandlesMutex.Unlock()
+	snapshot := make([]*FileHandle, len(this.activeHandles))
+	copy(snapshot, this.activeHandles)
+	return snapshot
+}
+
+// Responds to the FUSE Fsync request
+func (this *File) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	log.Printf("Dispatching fsync request to %d open handles", len(this.GetActiveHandles()))
+	var retErr error
+	for _, handle := range this.GetActiveHandles() {
+		err := handle.Fsync(ctx, req)
+		if err != nil {
+			retErr = err
+		}
+	}
+	return retErr
 }

@@ -198,5 +198,6 @@ func (this *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse
 		log.Printf("[%s] Can't create file: %v", this.AbsolutePathForChild(req.Name), err)
 		return nil, nil, err
 	}
+	file.AddHandle(handle)
 	return file, handle, nil
 }

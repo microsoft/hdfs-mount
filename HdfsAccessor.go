@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bazil.org/fuse"
 	"errors"
 	"fmt"
 	"github.com/colinmarc/hdfs"
@@ -226,7 +227,7 @@ func (this *hdfsAccessorImpl) LookupUid(userName string) uint32 {
 
 // Returns true if err==nil or err is expected (benign) error which should be propagated directoy to the caller
 func IsSuccessOrBenignError(err error) bool {
-	if err == nil || err == io.EOF {
+	if err == nil || err == io.EOF || err == fuse.EEXIST {
 		return true
 	}
 	if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
@@ -245,5 +246,11 @@ func (this *hdfsAccessorImpl) Mkdir(path string, mode os.FileMode) error {
 			return err
 		}
 	}
-	return this.MetadataClient.Mkdir(path, mode)
+	err := this.MetadataClient.Mkdir(path, mode)
+	if err != nil {
+		if strings.HasSuffix(err.Error(), "file already exists") {
+			err = fuse.EEXIST
+		}
+	}
+	return err
 }

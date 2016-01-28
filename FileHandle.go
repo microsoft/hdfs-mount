@@ -24,6 +24,7 @@ var _ fs.Node = (*FileHandle)(nil)
 var _ fs.HandleReader = (*FileHandle)(nil)
 var _ fs.HandleReleaser = (*FileHandle)(nil)
 var _ fs.HandleWriter = (*FileHandle)(nil)
+var _ fs.NodeFsyncer = (*FileHandle)(nil)
 
 // Creates new file handle
 func NewFileHandle(file *File) *FileHandle {
@@ -100,6 +101,16 @@ func (this *FileHandle) Flush(ctx context.Context, req *fuse.FlushRequest) error
 	return nil
 }
 
+// Responds to the FUSE Fsync request
+func (this *FileHandle) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	this.Mutex.Lock()
+	defer this.Mutex.Unlock()
+	if this.Writer != nil {
+		return this.Writer.Flush()
+	}
+	return nil
+}
+
 // Closes the handle
 func (this *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	if this.Reader != nil {
@@ -114,5 +125,6 @@ func (this *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) e
 	}
 	// Invalidating metadata cache
 	this.File.Attrs.Expires = this.File.FileSystem.Clock.Now().Add(-1 * time.Second)
+	this.File.RemoveHandle(this)
 	return nil
 }
