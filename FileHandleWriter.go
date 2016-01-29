@@ -4,12 +4,15 @@ package main
 
 import (
 	"bazil.org/fuse"
+	"errors"
 	"golang.org/x/net/context"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 )
+
+const MaxFileSizeForWrite uint64 = 100 * 1024 * 1024 * 1024 // 100G is a limit for now
 
 // Encapsulates state and routines for writing data from the file handle
 type FileHandleWriter struct {
@@ -22,18 +25,19 @@ type FileHandleWriter struct {
 func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, error) {
 	this := &FileHandleWriter{Handle: handle}
 	log.Printf("newFile=%v", newFile)
+	path := this.Handle.File.AbsolutePath()
 
-	c := this.Handle.File.FileSystem.HdfsAccessor.(*FaultTolerantHdfsAccessor).Impl.(*hdfsAccessorImpl).MetadataClient //TODO: use interfaces
+	hdfsAccessor := this.Handle.File.FileSystem.HdfsAccessor
 	if newFile {
-		c.Remove(this.Handle.File.AbsolutePath())
-		w, err := c.CreateFile(this.Handle.File.AbsolutePath(), 3, 64*1024*1024, this.Handle.File.Attrs.Mode)
+		hdfsAccessor.Remove(path)
+		w, err := hdfsAccessor.CreateFile(path, this.Handle.File.Attrs.Mode)
 		if err != nil {
-			log.Printf("ERROR creating %s: %s", this.Handle.File.AbsolutePath(), err)
+			log.Printf("ERROR creating %s: %s", path, err)
 			return nil, err
 		}
 		w.Close()
 	}
-	stageDir := "/var/hdfs-mount" // TODO: make configururable
+	stageDir := "/var/hdfs-mount" // TODO: make configurable
 	os.MkdirAll(stageDir, 0700)
 	var err error
 	this.stagingFile, err = ioutil.TempFile(stageDir, "stage")
@@ -44,8 +48,19 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 	if !newFile {
 		// Request to write to existing file
+		attrs, err := hdfsAccessor.Stat(path)
+		if err != nil {
+			log.Printf("[%s] Can't stat file: %s", path, err)
+		}
+		if attrs.Size >= MaxFileSizeForWrite {
+			this.stagingFile.Close()
+			this.stagingFile = nil
+			log.Printf("[%s] Maximum allowed file size for writing exceeded (%d >= %d)", path, attrs.Size, MaxFileSizeForWrite)
+			return nil, errors.New("Too large file")
+		}
+
 		log.Printf("Buffering contents of the file to the staging area %s...", this.stagingFile.Name())
-		reader, err := c.Open(this.Handle.File.AbsolutePath())
+		reader, err := hdfsAccessor.OpenRead(path)
 		if err != nil {
 			log.Printf("HDFS/open failure: %s", err)
 			this.stagingFile.Close()
@@ -67,6 +82,10 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 // Responds on FUSE Write request
 func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+	if uint64(req.Offset) >= MaxFileSizeForWrite {
+		log.Printf("[%s] Maximum allowed file size for writing exceeded (%d >= %d)", this.Handle.File.AbsolutePath(), req.Offset, MaxFileSizeForWrite)
+		return errors.New("Too large file")
+	}
 	nw, err := this.stagingFile.WriteAt(req.Data, req.Offset)
 	resp.Size = nw
 	if err != nil {
@@ -79,11 +98,24 @@ func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req
 // Responds on FUSE Flush/Fsync request
 func (this *FileHandleWriter) Flush() error {
 	log.Printf("[%s] flush (%d new bytes written)", this.Handle.File.AbsolutePath(), this.BytesWritten)
+	this.BytesWritten = 0
 	defer this.Handle.File.InvalidateMetadataCache()
 
-	c := this.Handle.File.FileSystem.HdfsAccessor.(*FaultTolerantHdfsAccessor).Impl.(*hdfsAccessorImpl).MetadataClient
-	c.Remove(this.Handle.File.AbsolutePath())
-	w, err := c.CreateFile(this.Handle.File.AbsolutePath(), 3, 64*1024*1024, this.Handle.File.Attrs.Mode)
+	op := this.Handle.File.FileSystem.RetryPolicy.StartOperation()
+	for {
+		err := this.FlushAttempt()
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Flush()", err) {
+			return err
+		}
+	}
+	return nil
+}
+
+// Single attempt to flush a file
+func (this *FileHandleWriter) FlushAttempt() error {
+	hdfsAccessor := this.Handle.File.FileSystem.HdfsAccessor
+	hdfsAccessor.Remove(this.Handle.File.AbsolutePath())
+	w, err := hdfsAccessor.CreateFile(this.Handle.File.AbsolutePath(), this.Handle.File.Attrs.Mode)
 	if err != nil {
 		log.Printf("ERROR creating %s: %s", this.Handle.File.AbsolutePath(), err)
 		return err

@@ -48,18 +48,9 @@ func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (ReadSeekCloser, er
 }
 
 // Opens HDFS file for writing
-func (this *FaultTolerantHdfsAccessor) OpenWrite(path string) (HdfsWriter, error) {
-	op := this.RetryPolicy.StartOperation()
-	for {
-		result, err := this.Impl.OpenWrite(path)
-		if err == nil {
-			// wrapping returned HdfsWriter with FaultTolerantHdfsReader
-			return &FaultTolerantHdfsWriter{Impl: result}, nil
-		}
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] OpenWrite: %s", path, err) {
-			return nil, err
-		}
-	}
+func (this *FaultTolerantHdfsAccessor) CreateFile(path string, mode os.FileMode) (HdfsWriter, error) {
+	// TODO: implement fault-tolerance. For now re-try-loop is implemented inside FileHandleWriter
+	return this.Impl.CreateFile(path, mode)
 }
 
 // Enumerates HDFS directory

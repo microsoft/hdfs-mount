@@ -19,6 +19,7 @@ type FileSystem struct {
 	AllowedPrefixes []string     // List of allowed path prefixes (only those prefixes are exposed via mountpoint)
 	ExpandZips      bool         // Indicates whether ZIP expansion feature is enabled
 	Mounted         bool         // True if filesystem is mounted
+	RetryPolicy     *RetryPolicy // Retry policy
 	Clock           Clock        // interface to get wall clock time
 
 	closeOnUnmount     []io.Closer // list of opened files (zip archives) to be closed on unmount
@@ -29,8 +30,15 @@ type FileSystem struct {
 var _ fs.FS = (*FileSystem)(nil)
 
 // Creates an instance of mountable file system
-func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, expandZips bool, clock Clock) (*FileSystem, error) {
-	return &FileSystem{HdfsAccessor: hdfsAccessor, MountPoint: mountPoint, Mounted: false, AllowedPrefixes: allowedPrefixes, ExpandZips: expandZips, Clock: clock}, nil
+func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, expandZips bool, retryPolicy *RetryPolicy, clock Clock) (*FileSystem, error) {
+	return &FileSystem{
+		HdfsAccessor:    hdfsAccessor,
+		MountPoint:      mountPoint,
+		Mounted:         false,
+		AllowedPrefixes: allowedPrefixes,
+		ExpandZips:      expandZips,
+		RetryPolicy:     retryPolicy,
+		Clock:           clock}, nil
 }
 
 // Mounts the filesystem

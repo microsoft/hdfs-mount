@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"github.com/colinmarc/hdfs"
 )
 
 // Allows to open HDFS file as a seekable/flushable/truncatable write-only stream
@@ -17,9 +18,15 @@ type HdfsWriter interface {
 }
 
 type hdfsWriterImpl struct {
+	BackendWriter *hdfs.FileWriter
 }
 
 var _ HdfsWriter = (*hdfsWriterImpl)(nil) // ensure hdfsWriterImpl implements HdfsWriter
+
+// Creates new instance of HdfsWriter
+func NewHdfsWriter(backendWriter *hdfs.FileWriter) HdfsWriter {
+	return &hdfsWriterImpl{BackendWriter: backendWriter}
+}
 
 // Seeks to a given position
 func (this *hdfsWriterImpl) Seek(pos int64) error {
@@ -28,7 +35,7 @@ func (this *hdfsWriterImpl) Seek(pos int64) error {
 
 // Writes chunk of data
 func (this *hdfsWriterImpl) Write(buffer []byte) (int, error) {
-	return 0, errors.New("Write is not implemented")
+	return this.BackendWriter.Write(buffer)
 }
 
 // Flushes all the data
@@ -43,5 +50,5 @@ func (this *hdfsWriterImpl) Truncate() error {
 
 // Truncate the HDFS file at a given position
 func (this *hdfsWriterImpl) Close() error {
-	return errors.New("Close is not implemented")
+	return this.BackendWriter.Close()
 }

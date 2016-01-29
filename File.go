@@ -56,7 +56,9 @@ func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.Op
 		}
 	}
 
-	if req.Flags.IsWriteOnly() || req.Flags.IsReadWrite() {
+	if req.Flags.IsWriteOnly() {
+		// Enabling write only if opened in WriteOnly mode
+		// In Read+Write scenario, write wills be enabled in lazy manner (on first write)
 		newFile := req.Flags.IsWriteOnly() && (req.Flags&fuse.OpenAppend != fuse.OpenAppend)
 		err := handle.EnableWrite(newFile)
 		if err != nil {

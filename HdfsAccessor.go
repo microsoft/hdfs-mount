@@ -21,14 +21,14 @@ import (
 // Interface for accessing HDFS
 // Concurrency: thread safe: handles unlimited number of concurrent requests
 type HdfsAccessor interface {
-	OpenRead(path string) (ReadSeekCloser, error) // Opens HDFS file for reading
-	OpenWrite(path string) (HdfsWriter, error)    // Opens HDFS file for writing
-	ReadDir(path string) ([]Attrs, error)         // Enumerates HDFS directory
-	Stat(path string) (Attrs, error)              // retrieves file/directory attributes
-	Mkdir(path string, mode os.FileMode) error    // Creates a directory
-	Remove(path string) error                     // Removes a file or directory
-	Rename(oldPath string, newPath string) error  // Renames a file or directory
-	EnsureConnected() error                       // Ensures HDFS accessor is connected to the HDFS name node
+	OpenRead(path string) (ReadSeekCloser, error)                 // Opens HDFS file for reading
+	CreateFile(path string, mode os.FileMode) (HdfsWriter, error) // Opens HDFS file for writing
+	ReadDir(path string) ([]Attrs, error)                         // Enumerates HDFS directory
+	Stat(path string) (Attrs, error)                              // retrieves file/directory attributes
+	Mkdir(path string, mode os.FileMode) error                    // Creates a directory
+	Remove(path string) error                                     // Removes a file or directory
+	Rename(oldPath string, newPath string) error                  // Renames a file or directory
+	EnsureConnected() error                                       // Ensures HDFS accessor is connected to the HDFS name node
 }
 
 type hdfsAccessorImpl struct {
@@ -128,9 +128,21 @@ func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
 	return NewHdfsReader(reader), nil
 }
 
-// Opens HDFS file for writing
-func (this *hdfsAccessorImpl) OpenWrite(path string) (HdfsWriter, error) {
-	return nil, errors.New("OpenWrite is not implemented")
+// Creates new HDFS file
+func (this *hdfsAccessorImpl) CreateFile(path string, mode os.FileMode) (HdfsWriter, error) {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return nil, err
+		}
+	}
+	writer, err := this.MetadataClient.CreateFile(path, 3, 64*1024*1024, mode)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewHdfsWriter(writer), nil
 }
 
 // Enumerates HDFS directory
@@ -192,13 +204,21 @@ func (this *hdfsAccessorImpl) AttrsFromFileInfo(fileInfo os.FileInfo) Attrs {
 	if fileInfo.IsDir() {
 		mode |= os.ModeDir
 	}
+	modificationTime := time.Unix(int64(protoBufData.GetModificationTime())/1000, 0)
 	return Attrs{
-		Inode: *protoBufData.FileId,
-		Name:  fileInfo.Name(),
-		Mode:  mode,
-		Size:  *protoBufData.Length,
-		Uid:   this.LookupUid(*protoBufData.Owner),
-		Gid:   0} // TODO: Group is now hardcoded to be "root", implement proper mapping
+		Inode:  *protoBufData.FileId,
+		Name:   fileInfo.Name(),
+		Mode:   mode,
+		Size:   *protoBufData.Length,
+		Uid:    this.LookupUid(*protoBufData.Owner),
+		Mtime:  modificationTime,
+		Ctime:  modificationTime,
+		Crtime: modificationTime,
+		Gid:    0} // TODO: Group is now hardcoded to be "root", implement proper mapping
+}
+
+func HadoopTimestampToTime(timestamp uint64) time.Time {
+	return time.Unix(int64(timestamp)/1000, 0)
 }
 
 // Performs a cache-assisted lookup of UID by username

@@ -145,7 +145,7 @@ func createTestHandle(t *testing.T, mockCtrl *gomock.Controller, hdfsReader Read
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	hdfsAccessor.EXPECT().Stat("/test.dat").Return(Attrs{Name: "test.dat"}, nil)
 	hdfsAccessor.EXPECT().OpenRead("/test.dat").Return(hdfsReader, nil)
-	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, &MockClock{})
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, NewDefaultRetryPolicy(&MockClock{}), &MockClock{})
 	root, _ := fs.Root()
 	file, _ := root.(*Dir).Lookup(nil, "test.dat")
 	h, _ := file.(*File).Open(nil, &fuse.OpenRequest{Flags: fuse.OpenReadOnly}, nil)
