@@ -9,6 +9,7 @@ import (
 	"log"
 	"path"
 	"sync"
+	"time"
 )
 
 type File struct {
@@ -69,7 +70,7 @@ func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.Op
 
 // Opens file for reading
 func (this *File) OpenRead() (ReadSeekCloser, error) {
-	handle, err := this.Open(nil, nil, nil)
+	handle, err := this.Open(nil, &fuse.OpenRequest{Flags: fuse.OpenReadOnly}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -115,4 +116,9 @@ func (this *File) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 		}
 	}
 	return retErr
+}
+
+// Invalidates metadata cache, so next ls or stat gives up-to-date file attributes
+func (this *File) InvalidateMetadataCache() {
+	this.Attrs.Expires = this.FileSystem.Clock.Now().Add(-1 * time.Second)
 }

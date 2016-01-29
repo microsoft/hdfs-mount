@@ -8,7 +8,6 @@ import (
 	"golang.org/x/net/context"
 	"log"
 	"sync"
-	"time"
 )
 
 // Represends a handle to an open file
@@ -115,16 +114,15 @@ func (this *FileHandle) Fsync(ctx context.Context, req *fuse.FsyncRequest) error
 func (this *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	if this.Reader != nil {
 		err := this.Reader.Close()
-		log.Printf("[%s] read-close: %s", this.File.AbsolutePath(), err)
+		log.Printf("[%s] Close/Read: err=%v", this.File.AbsolutePath(), err)
 		this.Reader = nil
 	}
 	if this.Writer != nil {
 		err := this.Writer.Close()
-		log.Printf("[%s] write-close: %s", this.File.AbsolutePath(), err)
+		log.Printf("[%s] Close/Write: err=%v", this.File.AbsolutePath(), err)
 		this.Writer = nil
 	}
-	// Invalidating metadata cache
-	this.File.Attrs.Expires = this.File.FileSystem.Clock.Now().Add(-1 * time.Second)
+	this.File.InvalidateMetadataCache()
 	this.File.RemoveHandle(this)
 	return nil
 }

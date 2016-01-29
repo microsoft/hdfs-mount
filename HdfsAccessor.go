@@ -26,8 +26,9 @@ type HdfsAccessor interface {
 	ReadDir(path string) ([]Attrs, error)         // Enumerates HDFS directory
 	Stat(path string) (Attrs, error)              // retrieves file/directory attributes
 	Mkdir(path string, mode os.FileMode) error    // Creates a directory
+	Remove(path string) error                     // Removes a file or directory
+	Rename(oldPath string, newPath string) error  // Renames a file or directory
 	EnsureConnected() error                       // Ensures HDFS accessor is connected to the HDFS name node
-	//TODO: write operations...
 }
 
 type hdfsAccessorImpl struct {
@@ -253,4 +254,28 @@ func (this *hdfsAccessorImpl) Mkdir(path string, mode os.FileMode) error {
 		}
 	}
 	return err
+}
+
+// Removes file or directory
+func (this *hdfsAccessorImpl) Remove(path string) error {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return err
+		}
+	}
+	return this.MetadataClient.Remove(path)
+}
+
+// Renames file or directory
+func (this *hdfsAccessorImpl) Rename(oldPath string, newPath string) error {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return err
+		}
+	}
+	return this.MetadataClient.Rename(oldPath, newPath)
 }

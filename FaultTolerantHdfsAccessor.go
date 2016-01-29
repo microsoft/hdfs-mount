@@ -94,3 +94,25 @@ func (this *FaultTolerantHdfsAccessor) Mkdir(path string, mode os.FileMode) erro
 		}
 	}
 }
+
+// Removes a file or directory
+func (this *FaultTolerantHdfsAccessor) Remove(path string) error {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		err := this.Impl.Remove(path)
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Remove: %s", path, err) {
+			return err
+		}
+	}
+}
+
+// Renames file or directory
+func (this *FaultTolerantHdfsAccessor) Rename(oldPath string, newPath string) error {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		err := this.Impl.Rename(oldPath, newPath)
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Rename to %s: %s", oldPath, newPath, err) {
+			return err
+		}
+	}
+}

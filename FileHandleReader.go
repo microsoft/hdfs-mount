@@ -15,6 +15,7 @@ import (
 // handle unordered reads which aren't far away from each other, so backend stream can
 // be read sequentially without seek
 type FileHandleReader struct {
+	Handle     *FileHandle    // File handle
 	HdfsReader ReadSeekCloser // Backend reader
 	Offset     int64          // Current offset for backend reader
 	Buffer1    *FileFragment  // Most recent fragment from the backend reader
@@ -26,11 +27,11 @@ type FileHandleReader struct {
 
 // Opens the reader (creates backend reader)
 func NewFileHandleReader(handle *FileHandle) (*FileHandleReader, error) {
-	this := &FileHandleReader{}
+	this := &FileHandleReader{Handle: handle}
 	var err error
 	this.HdfsReader, err = handle.File.FileSystem.HdfsAccessor.OpenRead(handle.File.AbsolutePath())
 	if err != nil {
-		log.Printf("ERROR opening %s: %s", handle.File.Attrs.Name, err)
+		log.Printf("[%s] ERROR opening: %s", handle.File.AbsolutePath(), err)
 		return nil, err
 	}
 	this.Buffer1 = &FileFragment{}
@@ -123,7 +124,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 // Closes the reader
 func (this *FileHandleReader) Close() error {
 	if this.HdfsReader != nil {
-		log.Printf("Handle read stats: holes: %d, cache hits: %d, hard seeks: %d", this.Holes, this.CacheHits, this.Seeks)
+		log.Printf("[%s] ReadStats: holes: %d, cache hits: %d, hard seeks: %d", this.Handle.File.AbsolutePath(), this.Holes, this.CacheHits, this.Seeks)
 		this.HdfsReader.Close()
 		this.HdfsReader = nil
 	}
