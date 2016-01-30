@@ -5,6 +5,8 @@ package main
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"golang.org/x/net/context"
+
 	"io"
 	"log"
 	"os"
@@ -28,6 +30,7 @@ type FileSystem struct {
 
 // Verify that *FileSystem implements necesary FUSE interfaces
 var _ fs.FS = (*FileSystem)(nil)
+var _ fs.FSStatfser = (*FileSystem)(nil)
 
 // Creates an instance of mountable file system
 func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, expandZips bool, retryPolicy *RetryPolicy, clock Clock) (*FileSystem, error) {
@@ -107,4 +110,15 @@ func (this *FileSystem) CloseOnUnmount(file io.Closer) {
 	this.closeOnUnmountLock.Lock()
 	defer this.closeOnUnmountLock.Unlock()
 	this.closeOnUnmount = append(this.closeOnUnmount, file)
+}
+
+// Statfs is called to obtain file system metadata.
+// It should write that data to resp.
+func (this *FileSystem) Statfs(ctx context.Context, req *fuse.StatfsRequest, resp *fuse.StatfsResponse) error {
+	// TODO: Implement statfs properly. Faking it for now reporting that free space is MaxFileSizeForWrite
+	resp.Bsize = 1024
+	resp.Bfree = MaxFileSizeForWrite / uint64(resp.Bsize)
+	resp.Bavail = resp.Bfree
+	resp.Blocks = resp.Bfree * 2
+	return nil
 }
