@@ -59,7 +59,13 @@ func (this *ZipDir) ReadArchive() error {
 
 	// Opening zip file (reading metadata of all archived files)
 	randomAccessReader := NewRandomAccessReader(this.ZipContainerFile)
-	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(this.ZipContainerFile.Attrs.Size))
+	var attr fuse.Attr
+	err := this.ZipContainerFile.Attr(nil, &attr)
+	if err != nil {
+		log.Printf("Error opening zip file: %s: %s", this.ZipContainerFile.AbsolutePath(), err.Error())
+		return err
+	}
+	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(attr.Size))
 	if err == nil {
 		log.Printf("Opened zip file: %s", this.ZipContainerFile.AbsolutePath())
 	} else {

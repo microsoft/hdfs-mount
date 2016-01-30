@@ -8,14 +8,14 @@ import (
 )
 
 func TestIsPathAllowedForStarPrefix(t *testing.T) {
-	fs, _ := NewFileSystem(nil, "/tmp", []string{"*"}, false, WallClock{})
+	fs, _ := NewFileSystem(nil, "/tmp", []string{"*"}, false, NewDefaultRetryPolicy(WallClock{}), WallClock{})
 	assert.True(t, fs.IsPathAllowed("/"))
 	assert.True(t, fs.IsPathAllowed("/foo"))
 	assert.True(t, fs.IsPathAllowed("/foo/bar"))
 }
 
 func TestIsPathAllowedForMiscPrefixes(t *testing.T) {
-	fs, _ := NewFileSystem(nil, "/tmp", []string{"foo", "bar", "baz/qux"}, false, WallClock{})
+	fs, _ := NewFileSystem(nil, "/tmp", []string{"foo", "bar", "baz/qux"}, false, NewDefaultRetryPolicy(WallClock{}), WallClock{})
 	assert.True(t, fs.IsPathAllowed("/"))
 	assert.True(t, fs.IsPathAllowed("/foo"))
 	assert.True(t, fs.IsPathAllowed("/bar"))

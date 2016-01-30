@@ -60,7 +60,7 @@ func main() {
 	}
 
 	// Creating the virtual file system
-	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, *expandZips, WallClock{})
+	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, *expandZips, retryPolicy, WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewFileSystem: ", err)
 	}

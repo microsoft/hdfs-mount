@@ -28,6 +28,8 @@ var _ fs.Node = (*Dir)(nil)
 var _ fs.HandleReadDirAller = (*Dir)(nil)
 var _ fs.NodeStringLookuper = (*Dir)(nil)
 var _ fs.NodeMkdirer = (*Dir)(nil)
+var _ fs.NodeRemover = (*Dir)(nil)
+var _ fs.NodeRenamer = (*Dir)(nil)
 
 // Returns absolute path of the dir in HDFS namespace
 func (this *Dir) AbsolutePath() string {
@@ -78,6 +80,14 @@ func (this *Dir) EntriesSet(name string, node fs.Node) {
 	}
 
 	this.Entries[name] = node
+}
+
+func (this *Dir) EntriesRemove(name string) {
+	this.EntriesMutex.Lock()
+	defer this.EntriesMutex.Unlock()
+	if this.Entries != nil {
+		delete(this.Entries, name)
+	}
 }
 
 // Responds on FUSE request to lookup the directory
@@ -181,10 +191,48 @@ func (this *Dir) LookupAttrs(name string, attrs *Attrs) error {
 	return nil
 }
 
+// Responds on FUSE Mkdir request
 func (this *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 	err := this.FileSystem.HdfsAccessor.Mkdir(this.AbsolutePathForChild(req.Name), req.Mode)
 	if err != nil {
 		return nil, err
 	}
 	return this.NodeFromAttrs(Attrs{Name: req.Name, Mode: req.Mode | os.ModeDir}), nil
+}
+
+// Responds on FUSE Create request
+func (this *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+	log.Printf("[%s] Create %s\n", this.AbsolutePathForChild(req.Name), req.Mode)
+	file := this.NodeFromAttrs(Attrs{Name: req.Name, Mode: req.Mode}).(*File)
+	handle := NewFileHandle(file)
+	err := handle.EnableWrite(true)
+	if err != nil {
+		log.Printf("[%s] Can't create file: %v", this.AbsolutePathForChild(req.Name), err)
+		return nil, nil, err
+	}
+	file.AddHandle(handle)
+	return file, handle, nil
+}
+
+// Responds on FUSE Remove request
+func (this *Dir) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
+	path := this.AbsolutePathForChild(req.Name)
+	log.Printf("[%s] Remove", path)
+	err := this.FileSystem.HdfsAccessor.Remove(path)
+	if err == nil {
+		this.EntriesRemove(req.Name)
+	}
+	return err
+}
+
+// Responds on FUSE Rename request
+func (this *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
+	oldPath := this.AbsolutePathForChild(req.OldName)
+	newPath := newDir.(*Dir).AbsolutePathForChild(req.NewName)
+	log.Printf("[%s] Rename to [%s]", oldPath, newPath)
+	err := this.FileSystem.HdfsAccessor.Rename(oldPath, newPath)
+	if err == nil {
+		this.EntriesRemove(req.OldName)
+	}
+	return err
 }

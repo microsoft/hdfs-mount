@@ -74,21 +74,6 @@ func TestOpenReadWithRetries(t *testing.T) {
 	assert.Equal(t, mockReader, result.(*FaultTolerantHdfsReader).Impl)
 }
 
-// Testing retry logic for OpenWrite()
-func TestOpenWriteWithRetries(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
-	ftHdfsAccessor := NewFaultTolerantHdfsAccessor(hdfsAccessor, atMost2Attempts())
-	mockWriter := NewMockHdfsWriter(mockCtrl)
-	var result HdfsWriter
-	var err error
-	hdfsAccessor.EXPECT().OpenWrite("/test/file").Return(nil, errors.New("Injected failure"))
-	hdfsAccessor.EXPECT().OpenWrite("/test/file").Return(mockWriter, nil)
-	result, err = ftHdfsAccessor.OpenWrite("/test/file")
-	assert.Nil(t, err)
-	assert.Equal(t, mockWriter, result.(*FaultTolerantHdfsWriter).Impl)
-}
-
 // generates a test retry policy which allows 2 attempst
 func atMost2Attempts() *RetryPolicy {
 	clock := &MockClock{}
