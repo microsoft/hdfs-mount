@@ -232,7 +232,16 @@ func (this *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.
 	log.Printf("[%s] Rename to [%s]", oldPath, newPath)
 	err := this.FileSystem.HdfsAccessor.Rename(oldPath, newPath)
 	if err == nil {
-		this.EntriesRemove(req.OldName)
+		// Upon successful rename, updating in-memory representation of the file entry
+		if node := this.EntriesGet(req.OldName); node != nil {
+			if fnode, ok := node.(*File); ok {
+				fnode.Attrs.Name = req.NewName
+			} else if dnode, ok := node.(*Dir); ok {
+				dnode.Attrs.Name = req.NewName
+			}
+			this.EntriesRemove(req.OldName)
+			newDir.(*Dir).EntriesSet(req.NewName, node)
+		}
 	}
 	return err
 }
