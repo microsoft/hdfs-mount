@@ -107,3 +107,25 @@ func (this *FaultTolerantHdfsAccessor) Rename(oldPath string, newPath string) er
 		}
 	}
 }
+
+// Chmod file or directory
+func (this *FaultTolerantHdfsAccessor) Chmod(path string, mode os.FileMode) error {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		err := this.Impl.Chmod(path, mode)
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chmod [%s] to [%d]: %s", path, mode, err) {
+			return err
+		}
+	}
+}
+
+// Chown file or directory
+func (this *FaultTolerantHdfsAccessor) Chown(path string, user, group string) error {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		err := this.Impl.Chown(path, user, group)
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chown [%s] to [%s:%s]: %s", path, user, group, err) {
+			return err
+		}
+	}
+}

@@ -140,3 +140,18 @@ func TestMkdir(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "foo", node.(*Dir).Attrs.Name)
 }
+
+// Tesing Chmod and Chown
+func TestPermission(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().Chmod("/tmp/x", os.FileMode(0757)).Return(nil)
+	err := root.(*Dir).Chmod(nil, &fuse.SetattrRequest{Handle: "foo", Mode: os.FileMode(0777)})
+	assert.Nil(t, err)
+	assert.Equal(t, os.FileMode(0777), root.(*Dir).EntriesGet("/foo").(*Dir).Attrs.Mode)
+
+	// TODO: for Chown, mock NewUser?
+}

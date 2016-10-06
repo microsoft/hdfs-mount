@@ -29,6 +29,8 @@ type HdfsAccessor interface {
 	Remove(path string) error                                     // Removes a file or directory
 	Rename(oldPath string, newPath string) error                  // Renames a file or directory
 	EnsureConnected() error                                       // Ensures HDFS accessor is connected to the HDFS name node
+	Chown(path string, owner, group string) error                 // Changes the owner and group of the file
+	Chmod(path string, mode os.FileMode) error                    // Changes the mode of the file
 }
 
 type hdfsAccessorImpl struct {
@@ -298,4 +300,28 @@ func (this *hdfsAccessorImpl) Rename(oldPath string, newPath string) error {
 		}
 	}
 	return this.MetadataClient.Rename(oldPath, newPath)
+}
+
+// Changes the mode of the file
+func (this *hdfsAccessorImpl) Chmod(path string, mode os.FileMode) error {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return err
+		}
+	}
+	return this.MetadataClient.Chmod(path, mode)
+}
+
+// Changes the owner and group of the file
+func (this *hdfsAccessorImpl) Chown(path string, user, group string) error {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return err
+		}
+	}
+	return this.MetadataClient.Chown(path, user, group)
 }
