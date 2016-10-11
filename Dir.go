@@ -5,9 +5,11 @@ package main
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"fmt"
 	"golang.org/x/net/context"
 	"log"
 	"os"
+	"os/user"
 	"path"
 	"strings"
 	"sync"
@@ -243,5 +245,40 @@ func (this *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.
 			newDir.(*Dir).EntriesSet(req.NewName, node)
 		}
 	}
+	return err
+}
+
+// Responds on FUSE Chown/Chmod request
+func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	// Get the filepath, so chown/chmod in hdfs can work
+	// BUGBUG: User may pass in another directory to change the permission
+	path = this.AbsolutePath()
+	newusr, err := user.LookupId(fmt.Sprint(req.Uid))
+	if err == nil {
+		return err
+	}
+	NewUser := newusr.Username
+	newgrp, err := user.LookupGroupId(fmt.Sprint(newusr.Gid))
+	if err == nil {
+		return err
+	}
+	NewGroup := newgrp.Name
+	NewMode := req.Mode
+
+	if NewMode != this.Attr.Mode {
+		log.Printf("Chmod [%s] to [%d]", path, NewMode)
+		err = this.FileSystem.HdfsAccessor.Chmod(path, NewMode)
+		if err == nil {
+			// TODO
+		}
+	}
+	else if newusr != this.Attr.Uid {
+		log.Printf("Chown [%s] to [%s:%s]", path, NewUser, NewGroup)
+		err = this.FileSystem.HdfsAccessor.Chown(path, NewUser, NewGroup)
+		if err == nil {
+			// To update the entry?
+		}
+	}
+
 	return err
 }
