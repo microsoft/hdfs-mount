@@ -7,9 +7,11 @@ import (
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
 	"log"
+	"os/user"
 	"path"
 	"sync"
 	"time"
+	"fmt"
 )
 
 type File struct {
@@ -123,4 +125,63 @@ func (this *File) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 // Invalidates metadata cache, so next ls or stat gives up-to-date file attributes
 func (this *File) InvalidateMetadataCache() {
 	this.Attrs.Expires = this.FileSystem.Clock.Now().Add(-1 * time.Second)
+}
+
+// Responds on FUSE Chown/Chmod request
+func (this *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	// Get the filepath, so chown/chmod in hdfs can work
+	path := this.AbsolutePath()
+	newusr, err := user.LookupId(fmt.Sprint(req.Uid))
+	if err != nil {
+		log.Printf("Error to get user information with request")
+		return err
+	}
+	NewUser := newusr.Username
+	newgrp, err := user.LookupGroupId(fmt.Sprint(newusr.Gid))
+	if err != nil {
+		log.Printf("Error to get group information with request")
+		return err
+	}
+	NewGroup := newgrp.Name
+	NewMode := req.Mode
+
+	if NewMode != this.Attrs.Mode {
+		log.Printf("Chmod [%s] to [%d]", path, NewMode)
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chmod(path, NewMode)
+			// If error happens, exit the function, same as try
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			// Catch the function err code
+			log.Printf("Chmod failed with error: %v", err)
+		} else {
+			// Update the attrs in FUSE, only when HDFS sets attrs successfully
+			this.Attrs.Mode = NewMode
+		}
+	}
+	if req.Uid != this.Attrs.Uid || req.Gid != this.Attrs.Gid {
+		log.Printf("Chown [%s] to [%s:%s]", path, NewUser, NewGroup)
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chown(path, NewUser, NewGroup)
+			// If error happens, exit the function, same as try
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			// Catch the function err code
+			log.Printf("Chown failed with error: %v", err)
+		} else {
+			// Update the attrs in FUSE, only when HDFS sets attrs successfully 
+			this.Attrs.Uid = req.Uid
+			this.Attrs.Gid = req.Gid
+		}
+	}
+
+	return err
 }

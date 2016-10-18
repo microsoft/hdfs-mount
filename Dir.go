@@ -5,9 +5,11 @@ package main
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"fmt"
 	"golang.org/x/net/context"
 	"log"
 	"os"
+	"os/user"
 	"path"
 	"strings"
 	"sync"
@@ -243,5 +245,64 @@ func (this *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.
 			newDir.(*Dir).EntriesSet(req.NewName, node)
 		}
 	}
+	return err
+}
+
+// Responds on FUSE Chown/Chmod request
+func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	// Get the filepath, so chown/chmod in hdfs can work
+	path := this.AbsolutePath()
+	newusr, err := user.LookupId(fmt.Sprint(req.Uid))
+	if err != nil {
+		log.Printf("Error to get user information with request")
+		return err
+	}
+	NewUser := newusr.Username
+	newgrp, err := user.LookupGroupId(fmt.Sprint(newusr.Gid))
+	if err != nil {
+		log.Printf("Error to get group information with request")
+		return err
+	}
+	NewGroup := newgrp.Name
+	NewMode := req.Mode
+
+	if NewMode != this.Attrs.Mode {
+		log.Printf("Chmod [%s] to [%d]", path, NewMode)
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chmod(path, NewMode)
+			// If error happens, exit the function, same as try
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			// Catch the function err code
+			log.Printf("Chmod failed with error: %v", err)
+		} else {
+			// Update the attrs in FUSE, only when HDFS sets attrs successfully
+			this.Attrs.Mode = NewMode
+		}
+	}
+	if req.Uid != this.Attrs.Uid || req.Gid != this.Attrs.Gid {
+		log.Printf("Chown [%s] to [%s:%s]", path, NewUser, NewGroup)
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chown(path, NewUser, NewGroup)
+			// If error happens, exit the function, same as try
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			// Catch the function err code
+			log.Printf("Chown failed with error: %v", err)
+		} else {
+			// Update the attrs in FUSE, only when HDFS sets attrs successfully 
+			this.Attrs.Uid = req.Uid
+			this.Attrs.Gid = req.Gid
+		}
+	}
+
 	return err
 }
