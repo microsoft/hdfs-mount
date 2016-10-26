@@ -1,0 +1,10 @@
+language: go
+go:
+  - 1.6
+  - 1.5
+install: make
+script:
+  - make test
+sudo: false
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

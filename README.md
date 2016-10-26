@@ -1,5 +1,8 @@
 hdfs-mount
 ==========
+
+[![Build Status](https://travis-ci.org/microsoft/hdfs-mount.svg?branch=master)](https://travis-ci.org/microsoft/hdfs-mount)
+
 Allows to mount remote HDFS as a local Linux filesystem and allow arbitrary applications / shell scripts to access HDFS as normal files and directories in efficient and secure way.
 
 Features (Planned)
