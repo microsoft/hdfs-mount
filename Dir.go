@@ -245,3 +245,28 @@ func (this *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.
 	}
 	return err
 }
+
+// Responds on FUSE Chmod request
+func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) error {
+	// Get the filepath, so chmod in hdfs can work
+	path := this.AbsolutePath()
+	var err error
+
+	if req.Valid.Mode() {
+		log.Printf("Chmod [%s] to [%d]", path, req.Mode)
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chmod(path, req.Mode)
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			log.Printf("Chmod failed with error: %v", err)
+		} else {
+			this.Attrs.Mode = req.Mode
+		}
+	}
+
+	return err
+}
