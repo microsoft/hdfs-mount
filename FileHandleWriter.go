@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-const MaxFileSizeForWrite uint64 = 100 * 1024 * 1024 * 1024 // 100G is a limit for now
+const MaxFileSizeForWrite uint64 = 200 * 1024 * 1024 * 1024 // 200G is a limit for now
 
 // Encapsulates state and routines for writing data from the file handle
 type FileHandleWriter struct {
