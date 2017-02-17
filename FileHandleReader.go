@@ -94,8 +94,9 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 		} else {
 			this.Seeks++
 			err := this.HdfsReader.Seek(fileOffset)
-			if err != nil {
-				log.Printf("[%d] Seek error to %d: %s", this.Offset, fileOffset, err.Error())
+			// If seek error happens, return err. Seek to the end of the file is not an error.
+			if err != nil && this.Offset > fileOffset{
+				log.Printf("[seek offset: %d] Seek error to %d (file offset): %s", this.Offset, fileOffset, err.Error())
 				return 0, err
 			}
 			this.Offset = fileOffset
