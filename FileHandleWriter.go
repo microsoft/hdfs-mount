@@ -51,6 +51,7 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 		attrs, err := hdfsAccessor.Stat(path)
 		if err != nil {
 			log.Printf("[%s] Can't stat file: %s", path, err)
+			return this, nil
 		}
 		if attrs.Size >= MaxFileSizeForWrite {
 			this.stagingFile.Close()
