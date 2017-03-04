@@ -25,6 +25,14 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	retryPolicy := NewDefaultRetryPolicy(WallClock{})
+	go func() {
+		for sig := range sigs {
+			// Quit before file system is mounted
+			log.Print("Signal received: " + sig.String())
+			retryPolicy.MaxAttempts = 0
+			retryPolicy.MaxDelay = 0
+		}
+	}()
 
 	lazyMount := flag.Bool("lazy", false, "Allows to mount HDFS filesystem before HDFS is available")
 	flag.DurationVar(&retryPolicy.TimeLimit, "retryTimeLimit", 5*time.Minute, "time limit for all retry attempts for failed operations")
