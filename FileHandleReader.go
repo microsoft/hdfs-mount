@@ -7,7 +7,6 @@ import (
 	"errors"
 	"golang.org/x/net/context"
 	"io"
-	"log"
 )
 
 // Encapsulates state and routines for reading data from the file handle
@@ -31,7 +30,7 @@ func NewFileHandleReader(handle *FileHandle) (*FileHandleReader, error) {
 	var err error
 	this.HdfsReader, err = handle.File.FileSystem.HdfsAccessor.OpenRead(handle.File.AbsolutePath())
 	if err != nil {
-		log.Printf("[%s] ERROR opening: %s", handle.File.AbsolutePath(), err)
+		Error.Println("[", handle.File.AbsolutePath(), "] Opening: ", err)
 		return nil, err
 	}
 	this.Buffer1 = &FileFragment{}
@@ -96,7 +95,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 			err := this.HdfsReader.Seek(fileOffset)
 			// If seek error happens, return err. Seek to the end of the file is not an error.
 			if err != nil && this.Offset > fileOffset{
-				log.Printf("[seek offset: %d] Seek error to %d (file offset): %s", this.Offset, fileOffset, err.Error())
+				Error.Println("[seek offset:", this.Offset, "] Seek error to", fileOffset, "(file offset):", err.Error())
 				return 0, err
 			}
 			this.Offset = fileOffset
@@ -110,7 +109,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 	err := this.Buffer1.ReadFromBackend(this.HdfsReader, &this.Offset, minBytesToRead, maxBytesToRead)
 	if err != nil {
 		if err == io.EOF {
-			log.Printf("[%s] EOF @%d", handle.File.AbsolutePath(), this.Offset)
+			Error.Println("[", handle.File.AbsolutePath(), "] EOF @", this.Offset)
 			return 0, err
 		}
 		return 0, err
@@ -125,7 +124,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 // Closes the reader
 func (this *FileHandleReader) Close() error {
 	if this.HdfsReader != nil {
-		log.Printf("[%s] ReadStats: holes: %d, cache hits: %d, hard seeks: %d", this.Handle.File.AbsolutePath(), this.Holes, this.CacheHits, this.Seeks)
+		Info.Println("[", this.Handle.File.AbsolutePath(), "] ReadStats: holes:", this.Holes, ", cache hits:", this.CacheHits, ", hard seeks:", this.Seeks)
 		this.HdfsReader.Close()
 		this.HdfsReader = nil
 	}

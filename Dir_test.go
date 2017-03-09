@@ -6,6 +6,7 @@ import (
 	"bazil.org/fuse"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"os"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 func TestAttributeCaching(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockClock := &MockClock{}
+	InitLogger(os.Stdout, os.Stdout, os.Stdout, os.Stderr)
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
 	root, _ := fs.Root()

@@ -7,7 +7,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
-	"log"
 	"strings"
 	"sync"
 )
@@ -62,14 +61,14 @@ func (this *ZipDir) ReadArchive() error {
 	var attr fuse.Attr
 	err := this.ZipContainerFile.Attr(nil, &attr)
 	if err != nil {
-		log.Printf("Error opening zip file: %s: %s", this.ZipContainerFile.AbsolutePath(), err.Error())
+		Error.Println("Error opening zip file: ", this.ZipContainerFile.AbsolutePath(), " : ", err.Error())
 		return err
 	}
 	zipArchiveReader, err := zip.NewReader(randomAccessReader, int64(attr.Size))
 	if err == nil {
-		log.Printf("Opened zip file: %s", this.ZipContainerFile.AbsolutePath())
+		Info.Println("Opened zip file: ", this.ZipContainerFile.AbsolutePath())
 	} else {
-		log.Printf("Error opening zip file: %s: %s", this.ZipContainerFile.AbsolutePath(), err.Error())
+		Error.Println("Opening zip file: ", this.ZipContainerFile.AbsolutePath(), " : ", err.Error())
 		return err
 	}
 

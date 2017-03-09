@@ -6,7 +6,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
-	"log"
 	"sync"
 )
 
@@ -67,7 +66,7 @@ func (this *FileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *f
 	defer this.Mutex.Unlock()
 
 	if this.Reader == nil {
-		log.Printf("[%s] Warning: reading file opened for write @%d", this.File.AbsolutePath(), req.Offset)
+		Warning.Println("[", this.File.AbsolutePath(), "] reading file opened for write @", req.Offset)
 		err := this.EnableRead()
 		if err != nil {
 			return err
@@ -114,12 +113,12 @@ func (this *FileHandle) Fsync(ctx context.Context, req *fuse.FsyncRequest) error
 func (this *FileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	if this.Reader != nil {
 		err := this.Reader.Close()
-		log.Printf("[%s] Close/Read: err=%v", this.File.AbsolutePath(), err)
+		Info.Println("[", this.File.AbsolutePath(), "] Close/Read: err=", err)
 		this.Reader = nil
 	}
 	if this.Writer != nil {
 		err := this.Writer.Close()
-		log.Printf("[%s] Close/Write: err=%v", this.File.AbsolutePath(), err)
+		Info.Println("[", this.File.AbsolutePath(), "] Close/Write: err=", err)
 		this.Writer = nil
 	}
 	this.File.InvalidateMetadataCache()

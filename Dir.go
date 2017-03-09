@@ -6,7 +6,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -129,11 +128,11 @@ func (this *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 // Responds on FUSE request to read directory
 func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	absolutePath := this.AbsolutePath()
-	log.Printf("[%s]ReadDirAll", absolutePath)
+	Info.Println("[", absolutePath, "]ReadDirAll")
 
 	allAttrs, err := this.FileSystem.HdfsAccessor.ReadDir(absolutePath)
 	if err != nil {
-		log.Print("Error/ls: ", err)
+		Error.Println("ls: ", err)
 		return nil, err
 	}
 	entries := make([]fuse.Dirent, 0, len(allAttrs))
@@ -180,7 +179,7 @@ func (this *Dir) LookupAttrs(name string, attrs *Attrs) error {
 	var err error
 	*attrs, err = this.FileSystem.HdfsAccessor.Stat(path.Join(this.AbsolutePath(), name))
 	if err != nil {
-		log.Printf("Error/stat: %s %v", err.Error(), err)
+		Error.Print("stat: ", err.Error(), err)
 		if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
 			return fuse.ENOENT
 		}
@@ -202,12 +201,12 @@ func (this *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, er
 
 // Responds on FUSE Create request
 func (this *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-	log.Printf("[%s] Create %s\n", this.AbsolutePathForChild(req.Name), req.Mode)
+	Info.Println("[", this.AbsolutePathForChild(req.Name), "] Create ", req.Mode)
 	file := this.NodeFromAttrs(Attrs{Name: req.Name, Mode: req.Mode}).(*File)
 	handle := NewFileHandle(file)
 	err := handle.EnableWrite(true)
 	if err != nil {
-		log.Printf("[%s] Can't create file: %v", this.AbsolutePathForChild(req.Name), err)
+		Error.Println("Can't create file: ", this.AbsolutePathForChild(req.Name), err)
 		return nil, nil, err
 	}
 	file.AddHandle(handle)
@@ -217,7 +216,7 @@ func (this *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse
 // Responds on FUSE Remove request
 func (this *Dir) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 	path := this.AbsolutePathForChild(req.Name)
-	log.Printf("[%s] Remove", path)
+	Info.Println("Remove", path)
 	err := this.FileSystem.HdfsAccessor.Remove(path)
 	if err == nil {
 		this.EntriesRemove(req.Name)
@@ -229,7 +228,7 @@ func (this *Dir) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 func (this *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
 	oldPath := this.AbsolutePathForChild(req.OldName)
 	newPath := newDir.(*Dir).AbsolutePathForChild(req.NewName)
-	log.Printf("[%s] Rename to [%s]", oldPath, newPath)
+	Info.Println("Rename [", oldPath, "] to ", newPath)
 	err := this.FileSystem.HdfsAccessor.Rename(oldPath, newPath)
 	if err == nil {
 		// Upon successful rename, updating in-memory representation of the file entry
@@ -253,7 +252,7 @@ func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fu
 	var err error
 
 	if req.Valid.Mode() {
-		log.Printf("Chmod [%s] to [%d]", path, req.Mode)
+		Info.Println("Chmod [", path, "] to [", req.Mode, "]")
 		(func() {
 			err = this.FileSystem.HdfsAccessor.Chmod(path, req.Mode)
 			if err != nil {
@@ -262,7 +261,7 @@ func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fu
 		})()
 
 		if err != nil {
-			log.Printf("Chmod failed with error: %v", err)
+			Error.Println("Chmod failed with error: ", err)
 		} else {
 			this.Attrs.Mode = req.Mode
 		}
