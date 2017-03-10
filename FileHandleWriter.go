@@ -47,29 +47,23 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 	if !newFile {
 		// Request to write to existing file
-		attrs, err := hdfsAccessor.Stat(path)
+		_, err := hdfsAccessor.Stat(path)
 		if err != nil {
-			Error.Println("[", path, "] Can't stat file:", err)
+			Warning.Println("[", path, "] Can't stat file:", err)
 			return this, nil
-		}
-		if attrs.Size >= MaxFileSizeForWrite {
-			this.stagingFile.Close()
-			this.stagingFile = nil
-			Error.Println("[", path, "] Maximum allowed file size for writing exceeded (", attrs.Size, " >=", MaxFileSizeForWrite, ")")
-			return nil, errors.New("Too large file")
 		}
 
 		Info.Println("Buffering contents of the file to the staging area ", this.stagingFile.Name())
 		reader, err := hdfsAccessor.OpenRead(path)
 		if err != nil {
-			Error.Println("HDFS/open failure:", err)
+			Warning.Println("HDFS/open failure:", err)
 			this.stagingFile.Close()
 			this.stagingFile = nil
 			return nil, err
 		}
 		nc, err := io.Copy(this.stagingFile, reader)
 		if err != nil {
-			Error.Println("Copy failure:", err)
+			Warning.Println("Copy failure:", err)
 			this.stagingFile.Close()
 			this.stagingFile = nil
 			return nil, err
@@ -83,7 +77,8 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 // Responds on FUSE Write request
 func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 	if uint64(req.Offset) >= MaxFileSizeForWrite {
-		Error.Println("[", this.Handle.File.AbsolutePath(), "] Maximum allowed file size for writing exceeded (", req.Offset, ">= ", MaxFileSizeForWrite, ")")
+		// The write limitation is gonna to be removed
+		Warning.Println("[", this.Handle.File.AbsolutePath(), "] Maximum allowed file size for writing exceeded (", req.Offset, ">= ", MaxFileSizeForWrite, ")")
 		return errors.New("Too large file")
 	}
 	nw, err := this.stagingFile.WriteAt(req.Data, req.Offset)

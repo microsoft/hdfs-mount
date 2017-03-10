@@ -132,7 +132,7 @@ func (this *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	allAttrs, err := this.FileSystem.HdfsAccessor.ReadDir(absolutePath)
 	if err != nil {
-		Error.Println("ls: ", err)
+		Warning.Println("ls [", absolutePath, "]: ", err)
 		return nil, err
 	}
 	entries := make([]fuse.Dirent, 0, len(allAttrs))
@@ -179,7 +179,8 @@ func (this *Dir) LookupAttrs(name string, attrs *Attrs) error {
 	var err error
 	*attrs, err = this.FileSystem.HdfsAccessor.Stat(path.Join(this.AbsolutePath(), name))
 	if err != nil {
-		Error.Print("stat: ", err.Error(), err)
+		// It is a warning as each time new file write tries to stat if the file exists
+		Warning.Print("stat [", name, "]: ", err.Error(), err)
 		if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
 			return fuse.ENOENT
 		}
@@ -261,7 +262,7 @@ func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fu
 		})()
 
 		if err != nil {
-			Error.Println("Chmod failed with error: ", err)
+			Error.Println("Chmod [", path, "] failed with error: ", err)
 		} else {
 			this.Attrs.Mode = req.Mode
 		}

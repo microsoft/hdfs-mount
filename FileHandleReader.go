@@ -95,7 +95,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 			err := this.HdfsReader.Seek(fileOffset)
 			// If seek error happens, return err. Seek to the end of the file is not an error.
 			if err != nil && this.Offset > fileOffset{
-				Error.Println("[seek offset:", this.Offset, "] Seek error to", fileOffset, "(file offset):", err.Error())
+				Error.Println("[seek", handle.File.AbsolutePath(), " @offset:", this.Offset, "] Seek error to", fileOffset, "(file offset):", err.Error())
 				return 0, err
 			}
 			this.Offset = fileOffset
@@ -109,7 +109,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 	err := this.Buffer1.ReadFromBackend(this.HdfsReader, &this.Offset, minBytesToRead, maxBytesToRead)
 	if err != nil {
 		if err == io.EOF {
-			Error.Println("[", handle.File.AbsolutePath(), "] EOF @", this.Offset)
+			Warning.Println("[", handle.File.AbsolutePath(), "] EOF @", this.Offset)
 			return 0, err
 		}
 		return 0, err
