@@ -7,6 +7,7 @@ import (
 	_ "bazil.org/fuse/fs/fstestutil"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -34,6 +35,7 @@ func main() {
 	allowedPrefixesString := flag.String("allowedPrefixes", "*", "Comma-separated list of allowed path prefixes on the remote file system, "+
 		"if specified the mount point will expose access to those prefixes only")
 	expandZips := flag.Bool("expandZips", false, "Enables automatic expansion of ZIP archives")
+	logLevel := flag.Int("logLevel", 0, "logs to be printed. 0: only fatal/err logs; 1: +warning logs; 2: +info logs")
 
 	flag.Usage = Usage
 	flag.Parse()
@@ -46,6 +48,14 @@ func main() {
 	allowedPrefixes := strings.Split(*allowedPrefixesString, ",")
 
 	retryPolicy.MaxAttempts += 1 // converting # of retry attempts to total # of attempts
+
+	if *logLevel == 0 {
+		InitLogger(ioutil.Discard, ioutil.Discard, os.Stdout, os.Stderr)
+	} else if *logLevel == 1 {
+		InitLogger(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
+	} else {
+		InitLogger(os.Stdout, os.Stdout, os.Stdout, os.Stderr)
+	}
 
 	hdfsAccessor, err := NewHdfsAccessor(flag.Arg(0), WallClock{})
 	if err != nil {

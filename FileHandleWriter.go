@@ -8,7 +8,6 @@ import (
 	"golang.org/x/net/context"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
@@ -24,7 +23,7 @@ type FileHandleWriter struct {
 // Opens the file for writing
 func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, error) {
 	this := &FileHandleWriter{Handle: handle}
-	log.Printf("newFile=%v", newFile)
+	Info.Println("newFile=", newFile)
 	path := this.Handle.File.AbsolutePath()
 
 	hdfsAccessor := this.Handle.File.FileSystem.HdfsAccessor
@@ -32,7 +31,7 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 		hdfsAccessor.Remove(path)
 		w, err := hdfsAccessor.CreateFile(path, this.Handle.File.Attrs.Mode)
 		if err != nil {
-			log.Printf("ERROR creating %s: %s", path, err)
+			Error.Println("Creating", path, ":", path, err)
 			return nil, err
 		}
 		w.Close()
@@ -48,34 +47,28 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 	if !newFile {
 		// Request to write to existing file
-		attrs, err := hdfsAccessor.Stat(path)
+		_, err := hdfsAccessor.Stat(path)
 		if err != nil {
-			log.Printf("[%s] Can't stat file: %s", path, err)
+			Warning.Println("[", path, "] Can't stat file:", err)
 			return this, nil
 		}
-		if attrs.Size >= MaxFileSizeForWrite {
-			this.stagingFile.Close()
-			this.stagingFile = nil
-			log.Printf("[%s] Maximum allowed file size for writing exceeded (%d >= %d)", path, attrs.Size, MaxFileSizeForWrite)
-			return nil, errors.New("Too large file")
-		}
 
-		log.Printf("Buffering contents of the file to the staging area %s...", this.stagingFile.Name())
+		Info.Println("Buffering contents of the file to the staging area ", this.stagingFile.Name())
 		reader, err := hdfsAccessor.OpenRead(path)
 		if err != nil {
-			log.Printf("HDFS/open failure: %s", err)
+			Warning.Println("HDFS/open failure:", err)
 			this.stagingFile.Close()
 			this.stagingFile = nil
 			return nil, err
 		}
 		nc, err := io.Copy(this.stagingFile, reader)
 		if err != nil {
-			log.Printf("Copy failure: %s", err)
+			Warning.Println("Copy failure:", err)
 			this.stagingFile.Close()
 			this.stagingFile = nil
 			return nil, err
 		}
-		log.Printf("Copied %d bytes", nc)
+		Info.Println("Copied", nc, "bytes")
 	}
 
 	return this, nil
@@ -84,7 +77,8 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 // Responds on FUSE Write request
 func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 	if uint64(req.Offset) >= MaxFileSizeForWrite {
-		log.Printf("[%s] Maximum allowed file size for writing exceeded (%d >= %d)", this.Handle.File.AbsolutePath(), req.Offset, MaxFileSizeForWrite)
+		// The write limitation is gonna to be removed
+		Warning.Println("[", this.Handle.File.AbsolutePath(), "] Maximum allowed file size for writing exceeded (", req.Offset, ">= ", MaxFileSizeForWrite, ")")
 		return errors.New("Too large file")
 	}
 	nw, err := this.stagingFile.WriteAt(req.Data, req.Offset)
@@ -98,7 +92,7 @@ func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req
 
 // Responds on FUSE Flush/Fsync request
 func (this *FileHandleWriter) Flush() error {
-	log.Printf("[%s] flush (%d new bytes written)", this.Handle.File.AbsolutePath(), this.BytesWritten)
+	Info.Println("[", this.Handle.File.AbsolutePath(), "] flush (", this.BytesWritten, "new bytes written)")
 	if this.BytesWritten == 0 {
 		// Nothing to do
 		return nil
@@ -109,7 +103,7 @@ func (this *FileHandleWriter) Flush() error {
 	op := this.Handle.File.FileSystem.RetryPolicy.StartOperation()
 	for {
 		err := this.FlushAttempt()
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Flush()", err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Flush()", err) {
 			return err
 		}
 	}
@@ -122,7 +116,7 @@ func (this *FileHandleWriter) FlushAttempt() error {
 	hdfsAccessor.Remove(this.Handle.File.AbsolutePath())
 	w, err := hdfsAccessor.CreateFile(this.Handle.File.AbsolutePath(), this.Handle.File.Attrs.Mode)
 	if err != nil {
-		log.Printf("ERROR creating %s: %s", this.Handle.File.AbsolutePath(), err)
+		Error.Println("ERROR creating", this.Handle.File.AbsolutePath(), ":", err)
 		return err
 	}
 
@@ -137,7 +131,7 @@ func (this *FileHandleWriter) FlushAttempt() error {
 
 		_, err = w.Write(b)
 		if err != nil {
-			log.Printf("ERROR closing %s: %s", this.Handle.File.AbsolutePath(), err)
+			Error.Println("Closing", this.Handle.File.AbsolutePath(), ":", err)
 			w.Close()
 			return err
 		}
@@ -145,7 +139,7 @@ func (this *FileHandleWriter) FlushAttempt() error {
 	}
 	err = w.Close()
 	if err != nil {
-		log.Printf("ERROR closing %s: %s", this.Handle.File.AbsolutePath(), err)
+		Error.Println("Closing", this.Handle.File.AbsolutePath(), ":", err)
 		return err
 	}
 

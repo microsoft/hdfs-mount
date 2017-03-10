@@ -6,7 +6,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
-	"log"
 	"path"
 	"sync"
 	"time"
@@ -47,7 +46,7 @@ func (this *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
 // Responds to the FUSE file open request (creates new file handle)
 func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	log.Printf("[%s] %v", this.AbsolutePath(), req.Flags)
+	Info.Println("Open: ", this.AbsolutePath(), req.Flags)
 	handle := NewFileHandle(this)
 	if req.Flags.IsReadOnly() || req.Flags.IsReadWrite() {
 		err := handle.EnableRead()
@@ -109,7 +108,7 @@ func (this *File) GetActiveHandles() []*FileHandle {
 
 // Responds to the FUSE Fsync request
 func (this *File) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
-	log.Printf("Dispatching fsync request to %d open handles", len(this.GetActiveHandles()))
+	Info.Println("Dispatching fsync request to open handles: ", len(this.GetActiveHandles()))
 	var retErr error
 	for _, handle := range this.GetActiveHandles() {
 		err := handle.Fsync(ctx, req)
@@ -132,7 +131,7 @@ func (this *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *f
 	var err error
 
 	if req.Valid.Mode() {
-		log.Printf("Chmod [%s] to [%d]", path, req.Mode)
+		Info.Println("Chmod [", path, "] to [", req.Mode, "]")
 		(func() {
 			err = this.FileSystem.HdfsAccessor.Chmod(path, req.Mode)
 			if err != nil {
@@ -141,7 +140,7 @@ func (this *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *f
 		})()
 
 		if err != nil {
-			log.Printf("Chmod failed with error: %v", err)
+			Error.Println("Chmod failed with error: ", err)
 		} else {
 			this.Attrs.Mode = req.Mode
 		}

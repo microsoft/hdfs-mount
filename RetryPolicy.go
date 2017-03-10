@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 )
@@ -68,7 +67,7 @@ func (op *Op) ShouldRetry(message string, args ...interface{}) bool {
 		diag = "exceeded max configured time interval for retries"
 	}
 	if diag != "" {
-		log.Printf(fmt.Sprintf("%s -> failed attempt #%d: will NOT be retried (%s)", message, op.Attempt, diag), args...)
+		Error.Printf(fmt.Sprintf("%s -> failed attempt #%d: will NOT be retried (%s)", message, op.Attempt, diag), args...)
 		return false
 	}
 	// Computing delay (exponential backoff)
@@ -87,7 +86,7 @@ func (op *Op) ShouldRetry(message string, args ...interface{}) bool {
 	}
 
 	// Logging information about failed attempt
-	log.Printf(fmt.Sprintf("%s -> failed attempt #%d: retrying in %s", message, op.Attempt, effectiveDelay), args...)
+	Warning.Printf(fmt.Sprintf("%s -> failed attempt #%d: retrying in %s", message, op.Attempt, effectiveDelay), args...)
 	op.Attempt++
 
 	// Sleeping
