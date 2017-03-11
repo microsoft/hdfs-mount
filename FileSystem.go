@@ -23,6 +23,7 @@ type FileSystem struct {
 	Mounted         bool         // True if filesystem is mounted
 	RetryPolicy     *RetryPolicy // Retry policy
 	Clock           Clock        // interface to get wall clock time
+	FsInfo          FsInfo       // Usage of HDFS, including capacity, remaining, used sizes.
 
 	closeOnUnmount     []io.Closer // list of opened files (zip archives) to be closed on unmount
 	closeOnUnmountLock sync.Mutex  // mutex to protet closeOnUnmount
@@ -115,10 +116,14 @@ func (this *FileSystem) CloseOnUnmount(file io.Closer) {
 // Statfs is called to obtain file system metadata.
 // It should write that data to resp.
 func (this *FileSystem) Statfs(ctx context.Context, req *fuse.StatfsRequest, resp *fuse.StatfsResponse) error {
-	// TODO: Implement statfs properly. Faking it for now reporting that free space is MaxFileSizeForWrite
+	fsInfo, err := this.HdfsAccessor.StatFs()
+	if err != nil {
+		Warning.Println("Failed to get HDFS info,", err)
+		return err
+	}
 	resp.Bsize = 1024
-	resp.Bfree = MaxFileSizeForWrite / uint64(resp.Bsize)
+	resp.Bfree = fsInfo.remaining / uint64(resp.Bsize)
 	resp.Bavail = resp.Bfree
-	resp.Blocks = resp.Bfree * 2
+	resp.Blocks = fsInfo.capacity / uint64(resp.Bsize)
 	return nil
 }

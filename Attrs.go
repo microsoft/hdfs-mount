@@ -22,6 +22,13 @@ type Attrs struct {
 	Expires time.Time // indicates when cached attribute information expires
 }
 
+// FsInfo provides information about HDFS
+type FsInfo struct {
+	capacity              uint64
+	used                  uint64
+	remaining             uint64
+}
+
 // Converts Attrs datastructure into FUSE represnetation
 func (this *Attrs) Attr(a *fuse.Attr) error {
 	a.Inode = this.Inode

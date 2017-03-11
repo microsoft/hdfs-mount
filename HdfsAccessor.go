@@ -23,7 +23,8 @@ type HdfsAccessor interface {
 	OpenRead(path string) (ReadSeekCloser, error)                 // Opens HDFS file for reading
 	CreateFile(path string, mode os.FileMode) (HdfsWriter, error) // Opens HDFS file for writing
 	ReadDir(path string) ([]Attrs, error)                         // Enumerates HDFS directory
-	Stat(path string) (Attrs, error)                              // retrieves file/directory attributes
+	Stat(path string) (Attrs, error)                              // Retrieves file/directory attributes
+	StatFs() (FsInfo, error)                                      // Retrieves HDFS usage
 	Mkdir(path string, mode os.FileMode) error                    // Creates a directory
 	Remove(path string) error                                     // Removes a file or directory
 	Rename(oldPath string, newPath string) error                  // Renames a file or directory
@@ -173,7 +174,7 @@ func (this *hdfsAccessorImpl) ReadDir(path string) ([]Attrs, error) {
 	return allAttrs, nil
 }
 
-// retrieves file/directory attributes
+// Retrieves file/directory attributes
 func (this *hdfsAccessorImpl) Stat(path string) (Attrs, error) {
 	this.MetadataClientMutex.Lock()
 	defer this.MetadataClientMutex.Unlock()
@@ -198,6 +199,28 @@ func (this *hdfsAccessorImpl) Stat(path string) (Attrs, error) {
 	return this.AttrsFromFileInfo(fileInfo), nil
 }
 
+// Retrieves HDFS usages
+func (this *hdfsAccessorImpl) StatFs() (FsInfo, error) {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return FsInfo{}, err
+		}
+	}
+
+	fsInfo, err := this.MetadataClient.StatFs()
+	if err != nil {
+		if IsSuccessOrBenignError(err) {
+			return FsInfo{}, err
+		}
+		this.MetadataClient = nil
+		return FsInfo{}, err
+	}
+	return this.AttrsFromFsInfo(fsInfo), nil
+}
+
 // Converts os.FileInfo + underlying proto-buf data into Attrs structure
 func (this *hdfsAccessorImpl) AttrsFromFileInfo(fileInfo os.FileInfo) Attrs {
 	protoBufData := fileInfo.Sys().(*hadoop_hdfs.HdfsFileStatusProto)
@@ -216,6 +239,13 @@ func (this *hdfsAccessorImpl) AttrsFromFileInfo(fileInfo os.FileInfo) Attrs {
 		Ctime:  modificationTime,
 		Crtime: modificationTime,
 		Gid:    0} // TODO: Group is now hardcoded to be "root", implement proper mapping
+}
+
+func (this *hdfsAccessorImpl) AttrsFromFsInfo(fsInfo hdfs.FsInfo) FsInfo {
+	return FsInfo {
+		capacity:  fsInfo.Capacity,
+		used:      fsInfo.Used,
+		remaining: fsInfo.Remaining}
 }
 
 func HadoopTimestampToTime(timestamp uint64) time.Time {
