@@ -11,8 +11,6 @@ import (
 	"os"
 )
 
-const MaxFileSizeForWrite uint64 = 200 * 1024 * 1024 * 1024 // 200G is a limit for now
-
 // Encapsulates state and routines for writing data from the file handle
 type FileHandleWriter struct {
 	Handle       *FileHandle
@@ -76,11 +74,15 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 // Responds on FUSE Write request
 func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-	if uint64(req.Offset) >= MaxFileSizeForWrite {
-		// The write limitation is gonna to be removed
-		Warning.Println("[", this.Handle.File.AbsolutePath(), "] Maximum allowed file size for writing exceeded (", req.Offset, ">= ", MaxFileSizeForWrite, ")")
+	fsInfo, err := this.Handle.File.FileSystem.HdfsAccessor.StatFs()
+	if err != nil {
+		// Donot abort, continue writing
+		Error.Println("Failed to get HDFS usage, ERROR:", err)
+	} else if uint64(req.Offset) >= fsInfo.remaining {
+		Error.Println("[", this.Handle.File.AbsolutePath(), "] writes larger size (", req.Offset, ")than HDFS available size (", fsInfo.remaining, ")")
 		return errors.New("Too large file")
 	}
+
 	nw, err := this.stagingFile.WriteAt(req.Data, req.Offset)
 	resp.Size = nw
 	if err != nil {

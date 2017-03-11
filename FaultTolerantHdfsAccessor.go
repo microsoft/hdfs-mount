@@ -75,6 +75,17 @@ func (this *FaultTolerantHdfsAccessor) Stat(path string) (Attrs, error) {
 	}
 }
 
+// Retrieves HDFS usage
+func (this *FaultTolerantHdfsAccessor) StatFs() (FsInfo, error) {
+	op := this.RetryPolicy.StartOperation()
+	for {
+		result, err := this.Impl.StatFs()
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("StatFs: %s", err) {
+			return result, err
+		}
+	}
+}
+
 // Creates a directory
 func (this *FaultTolerantHdfsAccessor) Mkdir(path string, mode os.FileMode) error {
 	op := this.RetryPolicy.StartOperation()
