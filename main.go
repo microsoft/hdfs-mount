@@ -81,6 +81,15 @@ func main() {
 	}
 	log.Print("Mounted successfully")
 
+	// Increase the maximum number of file descriptor from 1K to 1M in Linux
+	rLimit := syscall.Rlimit {
+		Cur: 1024*1024,
+		Max: 1024*1024}
+	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		Error.Printf("Failed to update the maximum number of file descriptors from 1K to 1M, %v", err)
+	}
+
 	defer func() {
 		fileSystem.Unmount()
 		log.Print("Closing...")
