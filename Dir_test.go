@@ -143,7 +143,7 @@ func TestMkdir(t *testing.T) {
 	assert.Equal(t, "foo", node.(*Dir).Attrs.Name)
 }
 
-// Tesing Chmod and Chown
+// Testing Chmod and Chown
 func TestSetattr(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockClock := &MockClock{}
@@ -156,4 +156,9 @@ func TestSetattr(t *testing.T) {
 	err := node.(*Dir).Setattr(nil, &fuse.SetattrRequest{Mode: os.FileMode(0777), Valid: fuse.SetattrMode}, &fuse.SetattrResponse{})
 	assert.Nil(t, err)
 	assert.Equal(t, os.FileMode(0777), node.(*Dir).Attrs.Mode)
+
+	hdfsAccessor.EXPECT().Chown("/foo", "root", "root").Return(nil)
+	err = node.(*Dir).Setattr(nil, &fuse.SetattrRequest{Uid: 0, Valid: fuse.SetattrUid}, &fuse.SetattrResponse{})
+	assert.Nil(t, err)
+	assert.Equal(t, uint32(0), node.(*Dir).Attrs.Uid)
 }
