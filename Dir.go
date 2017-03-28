@@ -5,8 +5,10 @@ package main
 import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"fmt"
 	"golang.org/x/net/context"
 	"os"
+	"os/user"
 	"path"
 	"strings"
 	"sync"
@@ -265,6 +267,33 @@ func (this *Dir) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fu
 			Error.Println("Chmod [", path, "] failed with error: ", err)
 		} else {
 			this.Attrs.Mode = req.Mode
+		}
+	}
+
+	if req.Valid.Uid() {
+		u, err := user.LookupId(fmt.Sprint(req.Uid))
+		owner := fmt.Sprint(req.Uid)
+		group := fmt.Sprint(req.Gid)
+		if err != nil {
+			Error.Println("Chown: username for uid", req.Uid, "not found, use uid/gid instead")
+		} else {
+			owner = u.Username
+			group = owner // hardcoded the group same as owner until LookupGroupId available
+		}
+
+		Info.Println("Chown [", path, "] to [", owner, ":", group, "]")
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chown(path, owner, group)
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			Error.Println("Chown failed with error:", err)
+		} else {
+			this.Attrs.Uid = req.Uid
+			this.Attrs.Gid = req.Gid
 		}
 	}
 
