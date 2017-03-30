@@ -3,9 +3,11 @@ go:
   - 1.7
   - 1.6
   - 1.5
+sudo: true
+before_install:
+  - sudo mkdir -m 777 -p /var/hdfs-mount
 install: make
 script:
   - make test
-sudo: false
 after_success:
   - bash <(curl -s https://codecov.io/bash)
