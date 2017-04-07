@@ -6,7 +6,7 @@ export GOPATH=$(PWD)/_gopath
 all: hdfs-mount 
 
 hdfs-mount: *.go $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context $(GOPATH)/src/github.com/golang/protobuf/proto
-	go build
+	go build -o hdfs-mount
 
 $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
 	ln -s $(GOPATH)/src/github.com/bazil $(GOPATH)/src/bazil.org
