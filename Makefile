@@ -45,4 +45,4 @@ test: hdfs-mount \
 	mock_HdfsAccessor_test.go \
 	mock_ReadSeekCloser_test.go \
 	mock_HdfsWriter_test.go
-	go test -covermode atomic
+	go test -coverprofile coverage.txt -covermode atomic
