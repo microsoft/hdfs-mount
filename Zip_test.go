@@ -15,7 +15,7 @@ import (
 func testZipPath() string {
 	// finding test file in the same directory as this unit test
 	_, thisFile, _, _ := runtime.Caller(0)
-	return path.Join(path.Dir(thisFile), "test.zip")
+	return path.Join(path.Dir(thisFile), "test/test.zip")
 }
 
 // Archive:  test.zip
@@ -45,10 +45,10 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	zipFileInfo, err := zipFile.Stat()
 	assert.Nil(t, err)
-	hdfsAccessor.EXPECT().Stat("/test.zip").Return(Attrs{Name: "test.zip", Size: uint64(zipFileInfo.Size())}, nil)
-	hdfsAccessor.EXPECT().OpenRead("/test.zip").Return(ReadSeekCloser(&FileAsReadSeekCloser{File: zipFile}), err)
+	hdfsAccessor.EXPECT().Stat("/test/test.zip").Return(Attrs{Name: "/test/test.zip", Size: uint64(zipFileInfo.Size())}, nil)
+	hdfsAccessor.EXPECT().OpenRead("/test/test.zip").Return(ReadSeekCloser(&FileAsReadSeekCloser{File: zipFile}), err)
 	root, err := fs.Root()
-	zipRootDirNode, err := root.(*Dir).Lookup(nil, "test.zip@")
+	zipRootDirNode, err := root.(*Dir).Lookup(nil, "test/test.zip@")
 	assert.Nil(t, err)
 	zipRootDir := zipRootDirNode.(*ZipDir)
 
