@@ -162,3 +162,74 @@ func TestSetattr(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint32(0), node.(*Dir).Attrs.Uid)
 }
+
+// Testing Remove
+func TestRemove(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().Mkdir("/foo", os.FileMode(0757)|os.ModeDir).Return(nil)
+	_, _ = root.(*Dir).Mkdir(nil, &fuse.MkdirRequest{Name: "foo", Mode: os.FileMode(0757) | os.ModeDir})
+
+	hdfsAccessor.EXPECT().Remove("/foo").Return(nil)
+	err := root.(*Dir).Remove(nil, &fuse.RemoveRequest{Name: "foo"})
+	assert.Nil(t, err)
+
+	// Lookup if the file exists
+	hdfsAccessor.EXPECT().Stat("/foo").Return(Attrs{}, &os.PathError{"stat", "foo", os.ErrNotExist})
+	_, err = root.(*Dir).Lookup(nil, "foo")
+	assert.Equal(t, fuse.ENOENT, err) // Not found error, since it is deleted
+}
+
+// Testing Rename
+func TestRename(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().Mkdir("/foo", os.FileMode(0757)|os.ModeDir).Return(nil)
+	node, _ := root.(*Dir).Mkdir(nil, &fuse.MkdirRequest{Name: "foo", Mode: os.FileMode(0757) | os.ModeDir})
+
+	hdfsAccessor.EXPECT().Mkdir("/foo/test-rename", os.FileMode(0757)|os.ModeDir).Return(nil)
+	_, _ = node.(*Dir).Mkdir(nil, &fuse.MkdirRequest{Name: "test-rename", Mode: os.FileMode(0757) | os.ModeDir})
+
+	hdfsAccessor.EXPECT().Rename("/foo/test-rename", "/foo/foo-new").Return(nil)
+	err := node.(*Dir).Rename(nil, &fuse.RenameRequest{OldName: "test-rename", NewName: "foo-new"}, node)
+	assert.Nil(t, err)
+
+	// Lookup if the file exists
+	hdfsAccessor.EXPECT().Stat("/foo/test-rename").Return(Attrs{}, &os.PathError{"stat", "test-rename", os.ErrNotExist})
+	_, err = node.(*Dir).Lookup(nil, "test-rename")
+	assert.Equal(t, fuse.ENOENT, err) // Not found error, since it is renamed
+	hdfsAccessor.EXPECT().Stat("/foo/foo-new").Return(Attrs{Name: "foo-new"}, nil)
+	stat, err := node.(*Dir).Lookup(nil, "foo-new")
+	assert.Nil(t, err)
+	assert.Equal(t, "foo-new", stat.(*Dir).Attrs.Name)
+}
+
+// Testing Remove .Trash files
+func TestRemoveTrash(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockClock := &MockClock{}
+	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"foo", "bar"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
+	root, _ := fs.Root()
+	hdfsAccessor.EXPECT().Mkdir("/foo", os.FileMode(0757)|os.ModeDir).Return(nil)
+	node, _ := root.(*Dir).Mkdir(nil, &fuse.MkdirRequest{Name: "foo", Mode: os.FileMode(0757) | os.ModeDir})
+
+	// Trying to remove .Trash directory on HDFS
+	hdfsAccessor.EXPECT().Mkdir("/foo/.Trash", os.FileMode(0757) | os.ModeDir).Return(nil)
+	_, _ = node.(*Dir).Mkdir(nil, &fuse.MkdirRequest{Name: ".Trash", Mode: os.FileMode(0757) | os.ModeDir})
+
+	hdfsAccessor.EXPECT().Remove("/foo/.Trash").Return(nil)
+	err := node.(*Dir).Remove(nil, &fuse.RemoveRequest{Name: ".Trash"})
+	assert.Nil(t, err)
+
+	hdfsAccessor.EXPECT().Stat("/foo/.Trash").Return(Attrs{Name: ".Trash"}, nil)
+	stat, err := node.(*Dir).Lookup(nil, ".Trash")
+	assert.Nil(t, err)
+	assert.Equal(t, ".Trash", stat.(*Dir).Attrs.Name) // Found, as .Trash cannot be deleted
+}
