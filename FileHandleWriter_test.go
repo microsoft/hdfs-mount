@@ -37,10 +37,24 @@ func TestWriteFile(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, writeHandle.BytesWritten, uint64(11))
 
+	hdfsAccessor.EXPECT().Remove("/testWriteFile_1").Return(nil)
+	hdfsAccessor.EXPECT().CreateFile(fileName, os.FileMode(0757)).Return(hdfswriter, nil)
+	hdfswriter.EXPECT().Close().Return(nil)
+	binaryData := make([]byte, 65536, 65536)
+	nr, _ := writeHandle.stagingFile.Read(binaryData)
+	binaryData = binaryData[:nr]
+	hdfswriter.EXPECT().Write(binaryData).Return(11, nil)
+	err = writeHandle.Flush()
+	assert.Nil(t, err)
+
+	// Test for closing file
+	err = writeHandle.Close()
+	assert.Nil(t, err)
+
 	// Test for writing file larger than available size
 	hdfsAccessor.EXPECT().StatFs().Return(FsInfo{capacity: uint64(100), used: uint64(95), remaining: uint64(5)}, nil)
 	err = writeHandle.Write(h.(*FileHandle), nil, &fuse.WriteRequest{Data: []byte("hello world"), Offset: int64(11)}, &fuse.WriteResponse{})
-	assert.Equal(t, err, errors.New("Too large file"))
+	assert.Equal(t, errors.New("Too large file"), err)
 }
 
 func TestFlushFile(t *testing.T) {
