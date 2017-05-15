@@ -29,6 +29,7 @@ func (this *ZipFile) Attr(ctx context.Context, fuseAttr *fuse.Attr) error {
 func (this *ZipFile) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	contentStream, err := this.zipFile.Open()
 	if err != nil {
+		Error.Println("Opening [", this.Attrs.Name, "], error: ", err)
 		return nil, err
 	}
 	// reporting to FUSE that the stream isn't seekable
