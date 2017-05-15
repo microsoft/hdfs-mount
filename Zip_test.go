@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bazil.org/fuse"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -95,6 +96,29 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "qux", qux.(*ZipFile).Attrs.Name)
 	assert.Equal(t, uint64(1024), qux.(*ZipFile).Attrs.Size)
+
+	// Test ReadDirAll
+	entries, err := zipRootDir.ReadDirAll(nil)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(entries)) // Number of subdirs and files
+
+	// Test ZipFile Attr
+	fuseAttr := &fuse.Attr{}
+	err = b.Attr(nil, fuseAttr)
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(4321), fuseAttr.Size)
+
+	// Test ZipFile Open
+	zipFileHandle, err := b.(*ZipFile).Open(nil, &fuse.OpenRequest{}, &fuse.OpenResponse{})
+	assert.Nil(t, err)
+
+	// Test ZipFile Read
+	err = zipFileHandle.(*ZipFileHandle).Read(nil, &fuse.ReadRequest{Size: 10}, &fuse.ReadResponse{})
+	assert.Nil(t, err)
+
+	// Test ZipFile Release
+	err = zipFileHandle.(*ZipFileHandle).Release(nil, &fuse.ReleaseRequest{})
+	assert.Nil(t, err)
 }
 
 // ReadSeekCloser adapter for os.File
