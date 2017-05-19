@@ -314,14 +314,9 @@ func (this *hdfsAccessorImpl) Remove(path string) error {
 		Error.Println("Trying to remove files in .Trash on HDFS, path is", path)
 		return nil
 	}
-	this.MetadataClientMutex.Lock()
-	defer this.MetadataClientMutex.Unlock()
-	if this.MetadataClient == nil {
-		if err := this.ConnectMetadataClient(); err != nil {
-			return err
-		}
-	}
-	return this.MetadataClient.Remove(path)
+	// Simulate the operation "hdfs dfs -rm <path>"
+	trashPath := "/user/root/.Trash/" + path
+	return this.Rename(path, trashPath)
 }
 
 // Renames file or directory
