@@ -219,6 +219,11 @@ func (this *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse
 // Responds on FUSE Remove request
 func (this *Dir) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 	path := this.AbsolutePathForChild(req.Name)
+	// Donot remove the .Trash directory in HDFS
+	if strings.Contains(path, ".Trash") {
+		Error.Println("Trying to remove .Trash directory on HDFS, path is", path)
+		return nil
+	}
 	Info.Println("Remove", path)
 	err := this.FileSystem.HdfsAccessor.Remove(path)
 	if err == nil {

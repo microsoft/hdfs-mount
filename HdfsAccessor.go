@@ -309,14 +309,15 @@ func (this *hdfsAccessorImpl) Mkdir(path string, mode os.FileMode) error {
 
 // Removes file or directory
 func (this *hdfsAccessorImpl) Remove(path string) error {
-	this.MetadataClientMutex.Lock()
-	defer this.MetadataClientMutex.Unlock()
-	if this.MetadataClient == nil {
-		if err := this.ConnectMetadataClient(); err != nil {
-			return err
-		}
+	// Donot remove the files in .Trash directory in HDFS
+	if strings.Contains(path, ".Trash") {
+		Error.Println("Trying to remove files in .Trash on HDFS, path is", path)
+		return nil
 	}
-	return this.MetadataClient.Remove(path)
+	// Simulate the operation "hdfs dfs -rm <path>"
+	trashPath := "/user/root/.Trash/" + time.Now().UTC().Format("20060102150405") + "/" + path
+	Info.Println(path, "Deleted (Removed to ", trashPath, ")")
+	return this.Rename(path, trashPath)
 }
 
 // Renames file or directory
