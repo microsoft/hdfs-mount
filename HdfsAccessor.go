@@ -315,7 +315,8 @@ func (this *hdfsAccessorImpl) Remove(path string) error {
 		return nil
 	}
 	// Simulate the operation "hdfs dfs -rm <path>"
-	trashPath := "/user/root/.Trash/" + path
+	trashPath := "/user/root/.Trash/" + time.Now().UTC().Format("20060102150405") + "/" + path
+	Info.Println(path, "Deleted (Removed to ", trashPath, ")")
 	return this.Rename(path, trashPath)
 }
 
