@@ -20,6 +20,7 @@ type FileSystem struct {
 	HdfsAccessor    HdfsAccessor // Interface to access HDFS
 	AllowedPrefixes []string     // List of allowed path prefixes (only those prefixes are exposed via mountpoint)
 	ExpandZips      bool         // Indicates whether ZIP expansion feature is enabled
+	ReadOnly        bool         // Indicates whether mount filesystem with readonly
 	Mounted         bool         // True if filesystem is mounted
 	RetryPolicy     *RetryPolicy // Retry policy
 	Clock           Clock        // interface to get wall clock time
@@ -34,27 +35,43 @@ var _ fs.FS = (*FileSystem)(nil)
 var _ fs.FSStatfser = (*FileSystem)(nil)
 
 // Creates an instance of mountable file system
-func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, expandZips bool, retryPolicy *RetryPolicy, clock Clock) (*FileSystem, error) {
+func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes []string, expandZips bool, readOnly bool, retryPolicy *RetryPolicy, clock Clock) (*FileSystem, error) {
 	return &FileSystem{
 		HdfsAccessor:    hdfsAccessor,
 		MountPoint:      mountPoint,
 		Mounted:         false,
 		AllowedPrefixes: allowedPrefixes,
 		ExpandZips:      expandZips,
+		ReadOnly:        readOnly,
 		RetryPolicy:     retryPolicy,
 		Clock:           clock}, nil
 }
 
 // Mounts the filesystem
 func (this *FileSystem) Mount() (*fuse.Conn, error) {
-	conn, err := fuse.Mount(
-		this.MountPoint,
-		fuse.FSName("hdfs"),
-		fuse.Subtype("hdfs"),
-		fuse.VolumeName("HDFS filesystem"),
-		fuse.AllowOther(),
-		fuse.WritebackCache(),
-		fuse.MaxReadahead(1024*64)) //TODO: make configurable
+	var conn *fuse.Conn
+	var err error
+	//TODO: make configurable
+	if this.ReadOnly {
+		conn, err = fuse.Mount(
+			this.MountPoint,
+			fuse.FSName("hdfs"),
+			fuse.Subtype("hdfs"),
+			fuse.VolumeName("HDFS filesystem"),
+			fuse.AllowOther(),
+			fuse.WritebackCache(),
+			fuse.MaxReadahead(1024*64),
+			fuse.ReadOnly())
+	} else {
+		conn, err = fuse.Mount(
+			this.MountPoint,
+			fuse.FSName("hdfs"),
+			fuse.Subtype("hdfs"),
+			fuse.VolumeName("HDFS filesystem"),
+			fuse.AllowOther(),
+			fuse.WritebackCache(),
+			fuse.MaxReadahead(1024*64))
+	}
 	if err != nil {
 		return nil, err
 	}

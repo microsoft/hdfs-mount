@@ -35,6 +35,7 @@ func main() {
 	allowedPrefixesString := flag.String("allowedPrefixes", "*", "Comma-separated list of allowed path prefixes on the remote file system, "+
 		"if specified the mount point will expose access to those prefixes only")
 	expandZips := flag.Bool("expandZips", false, "Enables automatic expansion of ZIP archives")
+	readOnly := flag.Bool("readOnly", false, "Enables mount with readonly")
 	logLevel := flag.Int("logLevel", 0, "logs to be printed. 0: only fatal/err logs; 1: +warning logs; 2: +info logs")
 
 	flag.Usage = Usage
@@ -70,7 +71,7 @@ func main() {
 	}
 
 	// Creating the virtual file system
-	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, *expandZips, retryPolicy, WallClock{})
+	fileSystem, err := NewFileSystem(ftHdfsAccessor, flag.Arg(1), allowedPrefixes, *expandZips, *readOnly, retryPolicy, WallClock{})
 	if err != nil {
 		log.Fatal("Error/NewFileSystem: ", err)
 	}
@@ -82,9 +83,9 @@ func main() {
 	log.Print("Mounted successfully")
 
 	// Increase the maximum number of file descriptor from 1K to 1M in Linux
-	rLimit := syscall.Rlimit {
-		Cur: 1024*1024,
-		Max: 1024*1024}
+	rLimit := syscall.Rlimit{
+		Cur: 1024 * 1024,
+		Max: 1024 * 1024}
 	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
 		Error.Printf("Failed to update the maximum number of file descriptors from 1K to 1M, %v", err)
