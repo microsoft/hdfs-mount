@@ -45,6 +45,8 @@ func main() {
 		os.Exit(2)
 	}
 
+	log.Print("hdfs-mount: current head GITCommit: ", GITCOMMIT, ", Built time: ", BUILDTIME, ", Built by:", HOSTNAME)
+
 	allowedPrefixes := strings.Split(*allowedPrefixesString, ",")
 
 	retryPolicy.MaxAttempts += 1 // converting # of retry attempts to total # of attempts
