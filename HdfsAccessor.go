@@ -111,7 +111,7 @@ func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client
 		// Succesfully connected
 		return client, nil
 	} else {
-		//TODO: how to close connection ?
+		client.Close()
 		return nil, statErr
 	}
 }
@@ -124,7 +124,7 @@ func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
 	}
 	reader, err2 := client.Open(path)
 	if err2 != nil {
-		//TODO: close connection
+		client.Close()
 		return nil, err2
 	}
 	return NewHdfsReader(reader), nil
