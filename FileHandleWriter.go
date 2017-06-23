@@ -69,6 +69,7 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 			this.stagingFile = nil
 			return nil, err
 		}
+		reader.Close()
 		Info.Println("Copied", nc, "bytes")
 	}
 

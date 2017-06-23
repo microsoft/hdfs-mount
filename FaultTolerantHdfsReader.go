@@ -35,6 +35,8 @@ func (this *FaultTolerantHdfsReader) Read(buffer []byte) (int, error) {
 			// Seeking to the right offset
 			if err = this.Impl.Seek(this.Offset); err != nil {
 				// Those errors are non-recoverable propagating right away
+				this.Impl.Close()
+				this.Impl = nil
 				return 0, err
 			}
 		}
