@@ -51,7 +51,6 @@ func NewFileSystem(hdfsAccessor HdfsAccessor, mountPoint string, allowedPrefixes
 func (this *FileSystem) Mount() (*fuse.Conn, error) {
 	var conn *fuse.Conn
 	var err error
-	//TODO: make configurable
 	if this.ReadOnly {
 		conn, err = fuse.Mount(
 			this.MountPoint,
@@ -60,7 +59,7 @@ func (this *FileSystem) Mount() (*fuse.Conn, error) {
 			fuse.VolumeName("HDFS filesystem"),
 			fuse.AllowOther(),
 			fuse.WritebackCache(),
-			fuse.MaxReadahead(1024*64),
+			fuse.MaxReadahead(1024*64),  //TODO: make configurable
 			fuse.ReadOnly())
 	} else {
 		conn, err = fuse.Mount(
@@ -70,7 +69,7 @@ func (this *FileSystem) Mount() (*fuse.Conn, error) {
 			fuse.VolumeName("HDFS filesystem"),
 			fuse.AllowOther(),
 			fuse.WritebackCache(),
-			fuse.MaxReadahead(1024*64))
+			fuse.MaxReadahead(1024*64))  //TODO: make configurable
 	}
 	if err != nil {
 		return nil, err

@@ -32,7 +32,7 @@ func TestStatfs(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockClock := &MockClock{}
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
-	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, false, NewDefaultRetryPolicy(mockClock), mockClock)
 
 	hdfsAccessor.EXPECT().StatFs().Return(FsInfo{capacity: uint64(10240), remaining: uint64(1024)}, nil)
 	fsInfo := &fuse.StatfsResponse{}

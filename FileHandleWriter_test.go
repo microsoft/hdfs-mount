@@ -64,7 +64,7 @@ func TestFlushFile(t *testing.T) {
 	mockClock := &MockClock{}
 	hdfsAccessor := NewMockHdfsAccessor(mockCtrl)
 	fileName := "/testWriteFile_2"
-	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, NewDefaultRetryPolicy(mockClock), mockClock)
+	fs, _ := NewFileSystem(hdfsAccessor, "/tmp/x", []string{"*"}, false, false, NewDefaultRetryPolicy(mockClock), mockClock)
 
 	hdfswriter := NewMockHdfsWriter(mockCtrl)
 	hdfsAccessor.EXPECT().Remove(fileName).Return(nil)
