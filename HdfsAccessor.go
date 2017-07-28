@@ -118,15 +118,17 @@ func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client
 
 // Opens HDFS file for reading
 func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
+	// Blocking read. This is to reduce the connections pressue on hadoop-name-node
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
 	if this.MetadataClient == nil {
 		if err := this.ConnectMetadataClient(); err != nil {
 			return nil, err
 		}
 	}
-	reader, err2 := this.MetadataClient.Open(path)
-	if err2 != nil {
-		this.MetadataClient.Close()
-		return nil, err2
+	reader, err := this.MetadataClient.Open(path)
+	if err != nil {
+		return nil, err
 	}
 	return NewHdfsReader(reader), nil
 }
