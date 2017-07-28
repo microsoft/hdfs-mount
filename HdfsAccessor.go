@@ -118,13 +118,14 @@ func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client
 
 // Opens HDFS file for reading
 func (this *hdfsAccessorImpl) OpenRead(path string) (ReadSeekCloser, error) {
-	client, err1 := this.ConnectToNameNode()
-	if err1 != nil {
-		return nil, err1
+	if this.MetadataClient == nil {
+		if err := this.ConnectMetadataClient(); err != nil {
+			return nil, err
+		}
 	}
-	reader, err2 := client.Open(path)
+	reader, err2 := this.MetadataClient.Open(path)
 	if err2 != nil {
-		client.Close()
+		this.MetadataClient.Close()
 		return nil, err2
 	}
 	return NewHdfsReader(reader), nil
