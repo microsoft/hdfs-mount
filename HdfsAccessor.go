@@ -285,7 +285,7 @@ func IsSuccessOrBenignError(err error) bool {
 	if err == nil || err == io.EOF || err == fuse.EEXIST {
 		return true
 	}
-	if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist) {
+	if pathError, ok := err.(*os.PathError); ok && (pathError.Err == os.ErrNotExist || pathError.Err == os.ErrPermission) {
 		return true
 	} else {
 		return false
