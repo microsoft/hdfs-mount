@@ -35,8 +35,7 @@ func (this *FaultTolerantHdfsReader) Read(buffer []byte) (int, error) {
 			// Seeking to the right offset
 			if err = this.Impl.Seek(this.Offset); err != nil {
 				// Those errors are non-recoverable propagating right away
-				this.Impl.Close()
-				this.Impl = nil
+				this.Close()
 				return 0, err
 			}
 		}
@@ -51,9 +50,7 @@ func (this *FaultTolerantHdfsReader) Read(buffer []byte) (int, error) {
 			return nr, err
 		}
 		// On failure, we need to close the reader
-		this.Impl.Close()
-		// and reset it to nil, so next time we attempt to re-open the file
-		this.Impl = nil
+		this.Close()
 	}
 }
 
@@ -79,5 +76,8 @@ func (this *FaultTolerantHdfsReader) Position() (int64, error) {
 
 // Closes the stream
 func (this *FaultTolerantHdfsReader) Close() error {
-	return this.Impl.Close()
+	err:= this.Impl.Close()
+	this.Impl = nil
+	return err
 }
+

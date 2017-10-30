@@ -31,12 +31,12 @@ type HdfsAccessor interface {
 	EnsureConnected() error                                       // Ensures HDFS accessor is connected to the HDFS name node
 	Chown(path string, owner, group string) error                 // Changes the owner and group of the file
 	Chmod(path string, mode os.FileMode) error                    // Changes the mode of the file
+	Close() error                                                 // Close current meta connection if needed
 }
 
 type hdfsAccessorImpl struct {
 	Clock               Clock                    // interface to get wall clock time
 	NameNodeAddresses   []string                 // array of Address:port string for the name nodes
-	CurrentNameNodeIdx  int                      // Index of the current name node in NameNodeAddresses array
 	MetadataClient      *hdfs.Client             // HDFS client used for metadata operations
 	MetadataClientMutex sync.Mutex               // Serializing all metadata operations for simplicity (for now), TODO: allow N concurrent operations
 	UserNameToUidCache  map[string]UidCacheEntry // cache for converting usernames to UIDs
@@ -55,7 +55,6 @@ func NewHdfsAccessor(nameNodeAddresses string, clock Clock) (HdfsAccessor, error
 
 	this := &hdfsAccessorImpl{
 		NameNodeAddresses:  nns,
-		CurrentNameNodeIdx: 0,
 		Clock:              clock,
 		UserNameToUidCache: make(map[string]UidCacheEntry)}
 	return this, nil
@@ -82,21 +81,21 @@ func (this *hdfsAccessorImpl) ConnectMetadataClient() error {
 // Establishes connection to a name node in the context of some other operation
 func (this *hdfsAccessorImpl) ConnectToNameNode() (*hdfs.Client, error) {
 	// connecting to HDFS name node
-	nnAddr := this.NameNodeAddresses[this.CurrentNameNodeIdx]
-	client, err := this.connectToNameNodeImpl(nnAddr)
+	client, err := this.connectToNameNodeImpl()
 	if err != nil {
-		// Connection failed, updating CurrentNameNodeIdx to try different name node next time
-		this.CurrentNameNodeIdx = (this.CurrentNameNodeIdx + 1) % len(this.NameNodeAddresses)
-		return nil, errors.New(fmt.Sprintf("%s: %s", nnAddr, err.Error()))
+		// Connection failed
+		return nil, errors.New(fmt.Sprintf("Fail to connect to name node with error: %s", err.Error()))
 	}
-	Info.Println("Connected to name node:", nnAddr)
+	Info.Println("Connected to name node")
 	return client, nil
 }
 
 // Performs an attempt to connect to the HDFS name
-func (this *hdfsAccessorImpl) connectToNameNodeImpl(nnAddr string) (*hdfs.Client, error) {
+func (this *hdfsAccessorImpl) connectToNameNodeImpl() (*hdfs.Client, error) {
 	// Performing an attempt to connect to the name node
-	client, err := hdfs.New(nnAddr)
+	client, err := hdfs.NewClient(hdfs.ClientOptions{
+		Addresses: this.NameNodeAddresses,
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -356,4 +355,17 @@ func (this *hdfsAccessorImpl) Chown(path string, user, group string) error {
 		}
 	}
 	return this.MetadataClient.Chown(path, user, group)
+}
+
+// Close current connection if needed 
+func (this *hdfsAccessorImpl) Close() error {
+	this.MetadataClientMutex.Lock()
+	defer this.MetadataClientMutex.Unlock()
+
+	if(this.MetadataClient != nil) {
+		err:= this.MetadataClient.Close()
+		this.MetadataClient = nil
+		return err
+	}
+	return nil
 }

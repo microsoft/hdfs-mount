@@ -39,7 +39,7 @@ func NewNoRetryPolicy() *RetryPolicy {
 func NewDefaultRetryPolicy(clock Clock) *RetryPolicy {
 	return &RetryPolicy{
 		Clock:           clock,
-		MaxAttempts:     99999999999,
+		MaxAttempts:     10,
 		TimeLimit:       5 * time.Minute,
 		MinDelay:        1 * time.Second,
 		MaxDelay:        1 * time.Minute,
