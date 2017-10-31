@@ -43,7 +43,7 @@ func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (ReadSeekCloser, er
 		}
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] OpenRead: %s", path, err) {
 			return nil, err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -63,7 +63,7 @@ func (this *FaultTolerantHdfsAccessor) ReadDir(path string) ([]Attrs, error) {
 		result, err := this.Impl.ReadDir(path)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] ReadDir: %s", path, err) {
 			return result, err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -77,7 +77,7 @@ func (this *FaultTolerantHdfsAccessor) Stat(path string) (Attrs, error) {
 		result, err := this.Impl.Stat(path)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Stat: %s", path, err) {
 			return result, err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -91,7 +91,7 @@ func (this *FaultTolerantHdfsAccessor) StatFs() (FsInfo, error) {
 		result, err := this.Impl.StatFs()
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("StatFs: %s", err) {
 			return result, err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -105,7 +105,7 @@ func (this *FaultTolerantHdfsAccessor) Mkdir(path string, mode os.FileMode) erro
 		err := this.Impl.Mkdir(path, mode)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Mkdir %s: %s", path, mode, err) {
 			return err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -119,7 +119,7 @@ func (this *FaultTolerantHdfsAccessor) Remove(path string) error {
 		err := this.Impl.Remove(path)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Remove: %s", path, err) {
 			return err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -133,7 +133,7 @@ func (this *FaultTolerantHdfsAccessor) Rename(oldPath string, newPath string) er
 		err := this.Impl.Rename(oldPath, newPath)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Rename to %s: %s", oldPath, newPath, err) {
 			return err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -147,7 +147,7 @@ func (this *FaultTolerantHdfsAccessor) Chmod(path string, mode os.FileMode) erro
 		err := this.Impl.Chmod(path, mode)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chmod [%s] to [%d]: %s", path, mode, err) {
 			return err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}
@@ -161,7 +161,7 @@ func (this *FaultTolerantHdfsAccessor) Chown(path string, user, group string) er
 		err := this.Impl.Chown(path, user, group)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chown [%s] to [%s:%s]: %s", path, user, group, err) {
 			return err
-		}else{
+		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
 			this.Impl.Close()
 		}

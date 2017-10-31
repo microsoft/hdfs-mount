@@ -76,7 +76,7 @@ func (this *FaultTolerantHdfsReader) Position() (int64, error) {
 
 // Closes the stream
 func (this *FaultTolerantHdfsReader) Close() error {
-	err:= this.Impl.Close()
+	err := this.Impl.Close()
 	this.Impl = nil
 	return err
 }
