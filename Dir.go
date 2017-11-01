@@ -188,8 +188,8 @@ func (this *Dir) LookupAttrs(name string, attrs *Attrs) error {
 		}
 		return err
 	}
-	// expiration time := now + 1 minute // TODO: make configurable
-	attrs.Expires = this.FileSystem.Clock.Now().Add(time.Minute)
+	// expiration time := now + 5 secs // TODO: make configurable
+	attrs.Expires = this.FileSystem.Clock.Now().Add(5 * time.Second)
 	return nil
 }
 
