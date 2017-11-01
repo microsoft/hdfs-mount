@@ -33,7 +33,7 @@ func TestAttributeCaching(t *testing.T) {
 	assert.Nil(t, dir.Attr(nil, &attr))
 	assert.Equal(t, os.ModeDir|0757, attr.Mode)
 
-	mockClock.NotifyTimeElapsed(30 * time.Second)
+	mockClock.NotifyTimeElapsed(2 * time.Second)
 	assert.Nil(t, dir.Attr(nil, &attr))
 	assert.Equal(t, os.ModeDir|0757, attr.Mode)
 
@@ -44,7 +44,7 @@ func TestAttributeCaching(t *testing.T) {
 	// After 30+31=61 seconds, attempt to query attributes should re-issue a Stat() request to the backend
 	// this time returing different attributes (555 instead of 757)
 	hdfsAccessor.EXPECT().Stat("/testDir").Return(Attrs{Name: "testDir", Mode: os.ModeDir | 0555}, nil)
-	mockClock.NotifyTimeElapsed(31 * time.Second)
+	mockClock.NotifyTimeElapsed(4 * time.Second)
 	assert.Nil(t, dir.Attr(nil, &attr))
 	assert.Equal(t, os.ModeDir|0555, attr.Mode)
 	dir1, err1 = root.(*Dir).Lookup(nil, "testDir")
