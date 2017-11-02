@@ -29,6 +29,7 @@ func TestStatWithRetries(t *testing.T) {
 	ftHdfsAccessor := NewFaultTolerantHdfsAccessor(hdfsAccessor, atMost2Attempts())
 	hdfsAccessor.EXPECT().Stat("/test/file").Return(Attrs{}, errors.New("Injected failure"))
 	hdfsAccessor.EXPECT().Stat("/test/file").Return(Attrs{Name: "file"}, nil)
+	hdfsAccessor.EXPECT().Close().Return(nil)
 	attrs, err := ftHdfsAccessor.Stat("/test/file")
 	assert.Nil(t, err)
 	assert.Equal(t, "file", attrs.Name)
@@ -41,6 +42,7 @@ func TestMkdirWithRetries(t *testing.T) {
 	ftHdfsAccessor := NewFaultTolerantHdfsAccessor(hdfsAccessor, atMost2Attempts())
 	hdfsAccessor.EXPECT().Mkdir("/test/dir", os.FileMode(0757)).Return(errors.New("Injected failure"))
 	hdfsAccessor.EXPECT().Mkdir("/test/dir", os.FileMode(0757)).Return(nil)
+        hdfsAccessor.EXPECT().Close().Return(nil)
 	err := ftHdfsAccessor.Mkdir("/test/dir", os.FileMode(0757))
 	assert.Nil(t, err)
 }
@@ -54,6 +56,7 @@ func TestReadDirWithRetries(t *testing.T) {
 	var err error
 	hdfsAccessor.EXPECT().ReadDir("/test/dir").Return(nil, errors.New("Injected failure"))
 	hdfsAccessor.EXPECT().ReadDir("/test/dir").Return(make([]Attrs, 10), nil)
+        hdfsAccessor.EXPECT().Close().Return(nil)
 	result, err = ftHdfsAccessor.ReadDir("/test/dir")
 	assert.Nil(t, err)
 	assert.Equal(t, 10, len(result))
@@ -69,6 +72,7 @@ func TestOpenReadWithRetries(t *testing.T) {
 	var err error
 	hdfsAccessor.EXPECT().OpenRead("/test/file").Return(nil, errors.New("Injected failure"))
 	hdfsAccessor.EXPECT().OpenRead("/test/file").Return(mockReader, nil)
+        hdfsAccessor.EXPECT().Close().Return(nil)
 	result, err = ftHdfsAccessor.OpenRead("/test/file")
 	assert.Nil(t, err)
 	assert.Equal(t, mockReader, result.(*FaultTolerantHdfsReader).Impl)
