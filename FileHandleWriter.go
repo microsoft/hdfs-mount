@@ -112,6 +112,8 @@ func (this *FileHandleWriter) Flush() error {
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Flush()", err) {
 			return err
 		}
+		// Restart a new connection, https://github.com/colinmarc/hdfs/issues/86
+		this.Handle.File.FileSystem.HdfsAccessor.Close()
 	}
 	return nil
 }

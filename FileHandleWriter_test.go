@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"os"
 	"testing"
 )
@@ -43,6 +44,9 @@ func TestWriteFile(t *testing.T) {
 	binaryData := make([]byte, 65536, 65536)
 	nr, _ := writeHandle.stagingFile.Read(binaryData)
 	binaryData = binaryData[:nr]
+
+	// Mock the EOF error to test the fault tolerant write/flush
+	hdfswriter.EXPECT().Write(binaryData).Return(0, io.EOF)
 	hdfswriter.EXPECT().Write(binaryData).Return(11, nil)
 	err = writeHandle.Flush()
 	assert.Nil(t, err)
