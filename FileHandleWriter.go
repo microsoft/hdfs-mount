@@ -109,11 +109,12 @@ func (this *FileHandleWriter) Flush() error {
 	op := this.Handle.File.FileSystem.RetryPolicy.StartOperation()
 	for {
 		err := this.FlushAttempt()
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Flush()", err) {
+		if err != io.EOF || IsSuccessOrBenignError(err) || !op.ShouldRetry("Flush()", err) {
 			return err
 		}
 		// Restart a new connection, https://github.com/colinmarc/hdfs/issues/86
 		this.Handle.File.FileSystem.HdfsAccessor.Close()
+		Error.Println("[", this.Handle.File.AbsolutePath(), "] failed flushing. Retry")
 	}
 	return nil
 }
