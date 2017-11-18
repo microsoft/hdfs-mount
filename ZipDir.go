@@ -84,6 +84,8 @@ func (this *ZipDir) ReadArchive() error {
 		attrs := Attrs{
 			Mode:   zipFile.Mode(),
 			Mtime:  zipFile.ModTime(),
+			Uid:    this.Attrs.Uid,
+			Gid:    this.Attrs.Gid,
 			Ctime:  zipFile.ModTime(),
 			Crtime: zipFile.ModTime(),
 			Size:   zipFile.UncompressedSize64,
