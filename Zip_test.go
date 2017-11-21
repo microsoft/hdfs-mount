@@ -66,10 +66,12 @@ func TestZipDirReadArchive(t *testing.T) {
 	baz, err := foo.(*ZipDir).Lookup(nil, "baz")
 	assert.Nil(t, err)
 	assert.Equal(t, "baz", baz.(*ZipDir).Attrs.Name)
+	assert.Equal(t, uint32(500), baz.(*ZipDir).Attrs.Uid)
 
 	x, err := baz.(*ZipDir).Lookup(nil, "x")
 	assert.Nil(t, err)
 	assert.Equal(t, "x", x.(*ZipDir).Attrs.Name)
+	assert.Equal(t, uint32(500), x.(*ZipDir).Attrs.Uid)
 
 	y, err := x.(*ZipDir).Lookup(nil, "y")
 	assert.Nil(t, err)
@@ -83,6 +85,7 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "w", w.(*ZipFile).Attrs.Name)
 	assert.Equal(t, uint64(256), w.(*ZipFile).Attrs.Size)
+	assert.Equal(t, uint32(500), w.(*ZipFile).Attrs.Uid)
 
 	b, err := foo.(*ZipDir).Lookup(nil, "b")
 	assert.Nil(t, err)
