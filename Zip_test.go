@@ -46,7 +46,7 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	zipFileInfo, err := zipFile.Stat()
 	assert.Nil(t, err)
-	hdfsAccessor.EXPECT().Stat("/test.zip").Return(Attrs{Name: "test.zip", Size: uint64(zipFileInfo.Size()), Uid: uint32(500), Gid: uint32(500)}, nil)
+	hdfsAccessor.EXPECT().Stat("/test.zip").Return(Attrs{Name: "test.zip", Size: uint64(zipFileInfo.Size()), Uid: uint32(500), Gid: uint32(500), Mode: 0555}, nil)
 	hdfsAccessor.EXPECT().OpenRead("/test.zip").Return(ReadSeekCloser(&FileAsReadSeekCloser{File: zipFile}), err)
 	root, err := fs.Root()
 	zipRootDirNode, err := root.(*Dir).Lookup(nil, "test.zip@")
@@ -62,6 +62,7 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Equal(t, "a", a.(*ZipFile).Attrs.Name)
 	assert.Equal(t, uint64(1234), a.(*ZipFile).Attrs.Size)
 	assert.Equal(t, uint32(500), a.(*ZipFile).Attrs.Uid)
+	assert.Equal(t, os.FileMode(0775), a.(*ZipFile).Attrs.Mode)
 
 	baz, err := foo.(*ZipDir).Lookup(nil, "baz")
 	assert.Nil(t, err)
@@ -72,6 +73,7 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "x", x.(*ZipDir).Attrs.Name)
 	assert.Equal(t, uint32(500), x.(*ZipDir).Attrs.Uid)
+	assert.Equal(t, os.ModeDir | 0775, x.(*ZipDir).Attrs.Mode)
 
 	y, err := x.(*ZipDir).Lookup(nil, "y")
 	assert.Nil(t, err)
@@ -86,6 +88,7 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Equal(t, "w", w.(*ZipFile).Attrs.Name)
 	assert.Equal(t, uint64(256), w.(*ZipFile).Attrs.Size)
 	assert.Equal(t, uint32(500), w.(*ZipFile).Attrs.Uid)
+	assert.Equal(t, os.FileMode(0775), w.(*ZipFile).Attrs.Mode)
 
 	b, err := foo.(*ZipDir).Lookup(nil, "b")
 	assert.Nil(t, err)

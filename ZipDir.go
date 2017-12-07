@@ -82,7 +82,7 @@ func (this *ZipDir) ReadArchive() error {
 	for _, zipFile := range zipArchiveReader.File {
 		dir := this
 		attrs := Attrs{
-			Mode:   zipFile.Mode(),
+			Mode:   zipFile.Mode() | 0755,
 			Mtime:  zipFile.ModTime(),
 			Uid:    this.Attrs.Uid,
 			Gid:    this.Attrs.Gid,
