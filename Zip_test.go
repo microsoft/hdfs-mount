@@ -16,7 +16,7 @@ import (
 func testZipPath() string {
 	// finding test file in the same directory as this unit test
 	_, thisFile, _, _ := runtime.Caller(0)
-	return path.Join(path.Dir(thisFile), "test.zip")
+	return path.Join(path.Dir(thisFile), "testdata/test.zip")
 }
 
 // Archive:  test.zip
