@@ -82,7 +82,7 @@ func (this *ZipDir) ReadArchive() error {
 	for _, zipFile := range zipArchiveReader.File {
 		dir := this
 		attrs := Attrs{
-			Mode:   zipFile.Mode() | 0755,
+			Mode:   zipFile.Mode() | 0700, // Cast the permission to RWX for owner
 			Mtime:  zipFile.ModTime(),
 			Uid:    this.Attrs.Uid,
 			Gid:    this.Attrs.Gid,
