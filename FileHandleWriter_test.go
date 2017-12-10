@@ -3,12 +3,17 @@ package main
 import (
 	"bazil.org/fuse"
 	"errors"
+	"flag"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
 	"testing"
 )
+
+func init() {
+	flag.StringVar(&stageDir, "stageDir", "/var/hdfs-mount", "set stage dir for test")
+}
 
 func TestWriteFile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
