@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 // Encapsulates state and routines for writing data from the file handle
@@ -115,6 +116,9 @@ func (this *FileHandleWriter) Flush() error {
 		// Restart a new connection, https://github.com/colinmarc/hdfs/issues/86
 		this.Handle.File.FileSystem.HdfsAccessor.Close()
 		Error.Println("[", this.Handle.File.AbsolutePath(), "] failed flushing. Retry")
+		// Wait for 30 seconds before another retry to get another set of datanodes.
+		// https://community.hortonworks.com/questions/2474/how-to-identify-stale-datanode.html
+		time.Sleep(30 * time.Second)
 	}
 	return nil
 }
@@ -140,7 +144,7 @@ func (this *FileHandleWriter) FlushAttempt() error {
 
 		_, err = w.Write(b)
 		if err != nil {
-			Error.Println("Closing", this.Handle.File.AbsolutePath(), ":", err)
+			Error.Println("Writing", this.Handle.File.AbsolutePath(), ":", err)
 			w.Close()
 			return err
 		}
