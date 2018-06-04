@@ -35,9 +35,8 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 		}
 		w.Close()
 	}
-	stageDir := "/var/hdfs-mount" // TODO: make configurable
 	if ok := os.MkdirAll(stageDir, 0700); ok != nil {
-		Error.Println("Failed to create stageDir /var/hdfs-mount, Error:", ok)
+		Error.Println("Failed to create stageDir", stageDir, ", Error:", ok)
 		return nil, ok
 	}
 	var err error
