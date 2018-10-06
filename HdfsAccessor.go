@@ -363,7 +363,7 @@ func (this *hdfsAccessorImpl) Close() error {
 	this.MetadataClientMutex.Lock()
 	defer this.MetadataClientMutex.Unlock()
 
-	if(this.MetadataClient != nil) {
+	if this.MetadataClient != nil {
 		err := this.MetadataClient.Close()
 		this.MetadataClient = nil
 		return err
