@@ -73,7 +73,7 @@ func TestZipDirReadArchive(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "x", x.(*ZipDir).Attrs.Name)
 	assert.Equal(t, uint32(500), x.(*ZipDir).Attrs.Uid)
-	assert.Equal(t, os.ModeDir | 0775, x.(*ZipDir).Attrs.Mode)
+	assert.Equal(t, os.ModeDir|0775, x.(*ZipDir).Attrs.Mode)
 
 	y, err := x.(*ZipDir).Lookup(nil, "y")
 	assert.Nil(t, err)

@@ -80,4 +80,3 @@ func (this *FaultTolerantHdfsReader) Close() error {
 	this.Impl = nil
 	return err
 }
-

@@ -42,7 +42,8 @@ mock_%_test.go: %.go | $(MOCKGEN_DIR)/mockgen
 	$(MOCKGEN_DIR)/mockgen -source $< -package main > $@~
 	mv -f $@~ $@
 
-test: hdfs-mount \
+test: lint \
+	hdfs-mount \
 	$(GOPATH)/src/github.com/stretchr/testify/assert \
 	$(GOPATH)/src/github.com/golang/mock/gomock \
 	$(MOCKGEN_DIR)/mockgen \
@@ -50,3 +51,7 @@ test: hdfs-mount \
 	mock_ReadSeekCloser_test.go \
 	mock_HdfsWriter_test.go
 	go test -coverprofile coverage.txt -covermode atomic
+
+lint:
+	test -z $$(gofmt -l .) || (echo "gofmt found lint errors"; exit 1)
+

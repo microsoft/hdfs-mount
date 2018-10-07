@@ -96,7 +96,7 @@ func (this *hdfsAccessorImpl) connectToNameNodeImpl() (*hdfs.Client, error) {
 	// Colinmar's hdfs implementation has supported the multiple name node connection
 	client, err := hdfs.NewClient(hdfs.ClientOptions{
 		Addresses: this.NameNodeAddresses,
-		})
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (this *hdfsAccessorImpl) AttrsFromFileInfo(fileInfo os.FileInfo) Attrs {
 }
 
 func (this *hdfsAccessorImpl) AttrsFromFsInfo(fsInfo hdfs.FsInfo) FsInfo {
-	return FsInfo {
+	return FsInfo{
 		capacity:  fsInfo.Capacity,
 		used:      fsInfo.Used,
 		remaining: fsInfo.Remaining}
@@ -358,12 +358,12 @@ func (this *hdfsAccessorImpl) Chown(path string, user, group string) error {
 	return this.MetadataClient.Chown(path, user, group)
 }
 
-// Close current connection if needed 
+// Close current connection if needed
 func (this *hdfsAccessorImpl) Close() error {
 	this.MetadataClientMutex.Lock()
 	defer this.MetadataClientMutex.Unlock()
 
-	if(this.MetadataClient != nil) {
+	if this.MetadataClient != nil {
 		err := this.MetadataClient.Close()
 		this.MetadataClient = nil
 		return err

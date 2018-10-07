@@ -24,9 +24,9 @@ type Attrs struct {
 
 // FsInfo provides information about HDFS
 type FsInfo struct {
-	capacity              uint64
-	used                  uint64
-	remaining             uint64
+	capacity  uint64
+	used      uint64
+	remaining uint64
 }
 
 // Converts Attrs datastructure into FUSE represnetation

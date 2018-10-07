@@ -94,7 +94,7 @@ func (this *FileHandleReader) ReadPartial(handle *FileHandle, fileOffset int64, 
 			this.Seeks++
 			err := this.HdfsReader.Seek(fileOffset)
 			// If seek error happens, return err. Seek to the end of the file is not an error.
-			if err != nil && this.Offset > fileOffset{
+			if err != nil && this.Offset > fileOffset {
 				Error.Println("[seek", handle.File.AbsolutePath(), " @offset:", this.Offset, "] Seek error to", fileOffset, "(file offset):", err.Error())
 				return 0, err
 			}
