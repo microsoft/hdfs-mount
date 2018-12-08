@@ -50,10 +50,20 @@ func (this *File) Attr(ctx context.Context, a *fuse.Attr) error {
 func (this *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	Info.Println("Open: ", this.AbsolutePath(), req.Flags)
 	handle := NewFileHandle(this)
-	if req.Flags.IsReadOnly() || req.Flags.IsReadWrite() {
+	if req.Flags.IsReadOnly() {
 		err := handle.EnableRead()
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if req.Flags.IsReadWrite() {
+		// Open file in readwrite mode. It is ok if file does not exist
+		err := handle.EnableRead()
+		if err != nil {
+			if err = handle.EnableWrite(req.Flags&fuse.OpenAppend != fuse.OpenAppend); err != nil {
+				return nil, err
+			}
 		}
 	}
 
