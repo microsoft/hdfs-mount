@@ -26,7 +26,7 @@ func (this *FaultTolerantHdfsAccessor) EnsureConnected() error {
 	op := this.RetryPolicy.StartOperation()
 	for {
 		err := this.Impl.EnsureConnected()
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Connect: %s", err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Connect: %v", err) {
 			return err
 		}
 	}
@@ -41,7 +41,7 @@ func (this *FaultTolerantHdfsAccessor) OpenRead(path string) (ReadSeekCloser, er
 			// wrapping returned HdfsReader with FaultTolerantHdfsReader
 			return NewFaultTolerantHdfsReader(path, result, this.Impl, this.RetryPolicy), nil
 		}
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] OpenRead: %s", path, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] OpenRead: %v", path, err) {
 			return nil, err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -61,7 +61,7 @@ func (this *FaultTolerantHdfsAccessor) ReadDir(path string) ([]Attrs, error) {
 	op := this.RetryPolicy.StartOperation()
 	for {
 		result, err := this.Impl.ReadDir(path)
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] ReadDir: %s", path, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] ReadDir: %v", path, err) {
 			return result, err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -75,7 +75,7 @@ func (this *FaultTolerantHdfsAccessor) Stat(path string) (Attrs, error) {
 	op := this.RetryPolicy.StartOperation()
 	for {
 		result, err := this.Impl.Stat(path)
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Stat: %s", path, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Stat: %v", path, err) {
 			return result, err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -89,7 +89,7 @@ func (this *FaultTolerantHdfsAccessor) StatFs() (FsInfo, error) {
 	op := this.RetryPolicy.StartOperation()
 	for {
 		result, err := this.Impl.StatFs()
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("StatFs: %s", err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("StatFs: %v", err) {
 			return result, err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -103,7 +103,7 @@ func (this *FaultTolerantHdfsAccessor) Mkdir(path string, mode os.FileMode) erro
 	op := this.RetryPolicy.StartOperation()
 	for {
 		err := this.Impl.Mkdir(path, mode)
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Mkdir %s: %s", path, mode, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Mkdir %s: %v", path, mode, err) {
 			return err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -117,7 +117,7 @@ func (this *FaultTolerantHdfsAccessor) Remove(path string) error {
 	op := this.RetryPolicy.StartOperation()
 	for {
 		err := this.Impl.Remove(path)
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Remove: %s", path, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Remove: %v", path, err) {
 			return err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -131,7 +131,7 @@ func (this *FaultTolerantHdfsAccessor) Rename(oldPath string, newPath string) er
 	op := this.RetryPolicy.StartOperation()
 	for {
 		err := this.Impl.Rename(oldPath, newPath)
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Rename to %s: %s", oldPath, newPath, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("[%s] Rename to %s: %v", oldPath, newPath, err) {
 			return err
 		} else {
 			// Clean up the bad connection, to let underline connection to get automatic refresh
@@ -145,12 +145,11 @@ func (this *FaultTolerantHdfsAccessor) Chmod(path string, mode os.FileMode) erro
 	op := this.RetryPolicy.StartOperation()
 	for {
 		err := this.Impl.Chmod(path, mode)
-		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chmod [%s] to [%d]: %s", path, mode, err) {
+		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chmod [%s] to [%d]: %v", path, mode, err) {
 			return err
-		} else {
-			// Clean up the bad connection, to let underline connection to get automatic refresh
-			this.Impl.Close()
 		}
+		// Clean up the bad connection, to let underline connection to get automatic refresh
+		this.Impl.Close()
 	}
 }
 
@@ -161,10 +160,9 @@ func (this *FaultTolerantHdfsAccessor) Chown(path string, user, group string) er
 		err := this.Impl.Chown(path, user, group)
 		if IsSuccessOrBenignError(err) || !op.ShouldRetry("Chown [%s] to [%s:%s]: %s", path, user, group, err) {
 			return err
-		} else {
-			// Clean up the bad connection, to let underline connection to get automatic refresh
-			this.Impl.Close()
 		}
+		// Clean up the bad connection, to let underline connection to get automatic refresh
+		this.Impl.Close()
 	}
 }
 
