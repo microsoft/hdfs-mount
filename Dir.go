@@ -36,9 +36,8 @@ var _ fs.NodeRenamer = (*Dir)(nil)
 func (this *Dir) AbsolutePath() string {
 	if this.Parent == nil {
 		return "/"
-	} else {
-		return path.Join(this.Parent.AbsolutePath(), this.Attrs.Name)
 	}
+	return path.Join(this.Parent.AbsolutePath(), this.Attrs.Name)
 }
 
 // Returns absolute path of the child item of this directory
@@ -79,7 +78,6 @@ func (this *Dir) EntriesSet(name string, node fs.Node) {
 	if this.Entries == nil {
 		this.Entries = make(map[string]fs.Node)
 	}
-
 	this.Entries[name] = node
 }
 

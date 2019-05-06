@@ -48,7 +48,6 @@ func (this *Attrs) Attr(a *fuse.Attr) error {
 func (this *Attrs) FuseNodeType() fuse.DirentType {
 	if (this.Mode & os.ModeDir) == os.ModeDir {
 		return fuse.DT_Dir
-	} else {
-		return fuse.DT_File
 	}
+	return fuse.DT_File
 }
