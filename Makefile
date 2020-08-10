@@ -9,14 +9,14 @@ HOSTNAME=`hostname`
 
 all: hdfs-mount 
 
-hdfs-mount: *.go $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context $(GOPATH)/src/github.com/golang/protobuf/proto
+hdfs-mount: *.go $(GOPATH)/src/bazil.org/fuse $(GOPATH)/src/github.com/colinmarc/hdfs $(GOPATH)/src/golang.org/x/net/context $(GOPATH)/src/github.com/golang/protobuf/proto $(GOPATH)/src/golang.org/x/sys/unix
 	go build -ldflags="-w -X main.GITCOMMIT=${GITCOMMIT} -X main.BUILDTIME=${BUILDTIME} -X main.HOSTNAME=${HOSTNAME}" -o hdfs-mount
 
 $(GOPATH)/src/bazil.org/fuse: $(GOPATH)/src/github.com/bazil/fuse
 	ln -s $(GOPATH)/src/github.com/bazil $(GOPATH)/src/bazil.org
 
 $(GOPATH)/src/github.com/colinmarc/hdfs:
-	[ -f submodules/colinmarc-hdfs/.git ] || { echo "ERROR: Please clone hdfs-mount repository recursively: git clone http://github.com/Microsoft/hdfs-mount --recursive"; exit 1; }
+	[ -d submodules/colinmarc-hdfs/.git ] || { echo "ERROR: Please clone hdfs-mount repository recursively: git clone http://github.com/Microsoft/hdfs-mount --recursive"; exit 1; }
 	mkdir -p $(shell dirname $@)
 	ln -s ../../../../submodules/colinmarc-hdfs $@
 
